@@ -1,0 +1,13 @@
+[2024-07-23T17:45:19.837Z] [=] New student registered undefined
+[2024-07-23T17:48:04.542Z] [=] User 21104010 logging in 
+[2024-07-23T17:48:04.555Z] [-] User 21104010 unsuccessfull login at 
+[2024-07-23T17:48:58.713Z] [=] User 21104010 logging in 
+[2024-07-23T17:48:58.731Z] [-] User 21104010 unsuccessfull login at 
+[2024-07-23T17:51:37.084Z] [=] New student registered undefined
+[2024-07-23T17:52:40.104Z] [=] New student registered undefined
+[2024-07-23T17:53:31.677Z] [=] New student registered 21104010
+[2024-07-23T18:02:12.471Z] [=] User 21104010 attempting to log in
+[2024-07-23T18:02:12.491Z] [-] Unsuccessful login attempt for user 21104010
+[2024-07-23T18:02:18.820Z] [=] User 21104010 attempting to log in
+[2024-07-23T18:02:18.824Z] [=] User 21104010 successfully logged in
+[2024-07-23T18:02:18.863Z] [=] Token provided for user 21104010
