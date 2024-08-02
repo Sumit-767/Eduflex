@@ -12,9 +12,11 @@ const { v4: uuidv4, stringify } = require("uuid");
 const { format } = require('date-fns');
 const multer = require("multer");
 require("dotenv").config();
+const cors = require("cors");
 const CSRFToken = require("./models/csrfttoken");
 const User = require("./models/users");
-const cors = require("cors");
+const Profiles = require("./models/profiles");
+
 
 const serverSK = process.env.SERVER_SEC_KEY;
 
@@ -74,13 +76,30 @@ server.use(express.json());
 server.use(express.static(path.join(__dirname, "public")));
 server.use(express.static("public"));
 
+const storage = multer.diskStorage({
+    destination: (req, file, callback) =>
+    {
+        const uploadDir = `uploads/${req.body.up_username}`;
+        fs.mkdirSync(uploadDir, { recursive: true });
+        callback(null, uploadDir);
+    },
+    filename: (req,file,callback)=>{
+        console.log("filename");
+        callback(null, req.body.up_username + "-" + file.originalname );
+    }
+});
+
+const upload  = multer({ storage : storage});
+
 
 server.get("/ping", (req, res) => {
     res.status(200).json({ message: "Server is up and running" });
 });
 
 server.post("/mobiletoken", async(req,res) => {
-    const userIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const response = await axios.get('https://api.ipify.org?format=json');
+    const userIP = response.data.ip;
+    
     const { mobiletoken } = req.body;
     try
     {
@@ -110,7 +129,8 @@ server.post("/mobiletoken", async(req,res) => {
 
 
 server.post("/login", async (req, res) => {
-    const userIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const response = await axios.get('https://api.ipify.org?format=json');
+    const userIP = response.data.ip;
     const { userUsername, userPwd , interface} = req.body;
     console.log( " API " , interface);
     logMessage(`[=] User ${userUsername} attempting to log in`);
@@ -159,7 +179,7 @@ server.post("/login", async (req, res) => {
                 interface: "Mobileapp"
             });
             await token_Data.save();
-            return res.status(200).json({ message: "Login successfull", token : LLT })
+            return res.status(200).json({ message: "Login successfull", token : LLT , userType : user.user_type})
         }
 
     
@@ -171,7 +191,9 @@ server.post("/login", async (req, res) => {
 
 
 server.post("/register", async (req, res) => {
-    const userIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const response = await axios.get('https://api.ipify.org?format=json');
+    const userIP = response.data.ip;
+    
     const { fullname, email , ph_no , reguserUsername, reguserPwd, confuserPwd, interface } = req.body;
     const specialCharRegex = /[!@#\$%\^&\*\(\)_\-=+]/;
     const passwordMinLength = 8;
@@ -207,7 +229,9 @@ server.post("/register", async (req, res) => {
 });
 
 server.post("/changeprofile", async (req, res) => {
-    const userIP = "awiodjiwjd";
+    const response = await axios.get('https://api.ipify.org?format=json');
+    const userIP = response.data.ip;
+    
     const { Token, changeemail, changepwd, changephoneno, interface } = req.body;
     console.log("Token:", Token, "Email:", changeemail, "Password:", changepwd, "PhoneNo:", changephoneno);
 
@@ -270,6 +294,40 @@ server.post("/changeprofile", async (req, res) => {
         logMessage(`[*] Internal server error: ${e}`);
         return res.status(500).json({ message: "Internal server error" });
     }
+});
+
+server.post('/upload', upload.single('file'), async (req, res) => {
+    try {
+        const response = await axios.get('https://api.ipify.org?format=json');
+        const userIP = response.data.ip;
+
+        const { Token,up_username, post_type, post_desc, interface } = req.body;
+        console.log(Token ,up_username, post_type , post_desc , interface);
+        
+    } catch (error) {
+        console.error(`[*] Internal server error: ${error}`);
+        res.status(500).json({ message: "Internal server error" });
+    }
+});
+
+server.get("/myprofile", async(req,res)=> {
+    const response = await axios.get('https://api.ipify.org?format=json');
+    const userIP = response.data.ip;
+    
+    const {Token, interface} = req.body;
+    const tokencheck = CSRFToken.findOne({token : Token});
+    if(tokencheck)
+    {
+        try {
+            user_profile_data = await Profiles.find({ username : tokencheck.username});
+            logMessage(`[=] ${interface} ${userIP} : ${tokencheck.username} pulled profile of ${tokencheck.username}`);
+            res.status(200).json({ data : user_profile_data});
+        } catch (error) {
+            logMessage(`[*] ${interface} ${userIP} : Internal server error ${error}`);
+            res.status(500).json({message : "Internal server error"});
+        }
+    }
+
 });
 
 
