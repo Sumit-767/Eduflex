@@ -14,6 +14,60 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   final _storage = FlutterSecureStorage(); // Create an instance of FlutterSecureStorage
 
+
+  Future<void> _autoLogin() async
+  {
+    final token = await _storage.read(key : 'auth_token');
+    if (token != null)
+      {
+        final responce = await http.post(
+          Uri.parse('http://192.168.31.28:8000/mobiletoken'),
+          headers: {
+            'Content-Type' : 'application/json',
+          },
+          body: json.encode({
+            'mobiletoken' : token,
+          })
+        );
+
+        if (responce.statusCode == 200)
+          {
+            final responceBody = json.decode(responce.body);
+            final message = responceBody['message'];
+            if (message == 'valid')
+              {
+                String pop = "Succesfull Auto Login";
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pop)));
+                Navigator.pushReplacementNamed(context, '/dashboard');
+              }
+          }
+        else if (responce.statusCode == 400)
+            {
+              final responceBody = json.decode(responce.body);
+              final message = responceBody['message'];
+              if (message == 'expired')
+              {
+                String pop = "PLS login";
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pop)));
+                Navigator.pushReplacementNamed(context, '/');
+              }
+            }
+      }
+    else
+      {
+        String pop = "Long Live Token Not Found";
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pop)));
+        Navigator.pushReplacementNamed(context, '/');
+      }
+  }
+
+  @override
+  void initState()
+  {
+    super.initState();
+    _autoLogin();
+  }
+
   Future<void> _login() async {
     final username = _usernameController.text;
     final password = _passwordController.text;
@@ -50,6 +104,8 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,6 +128,7 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: _login,
               child: Text('Login'),
             ),
+            //ElevatedButton(onPressed: _autoLogin, child: Text('Auto Login')),
             TextButton(
               onPressed: () {
                 // Navigate to the registration page
