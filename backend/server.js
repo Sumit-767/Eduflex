@@ -94,9 +94,32 @@ server.get("/ping", (req, res) => {
     res.status(200).json({ message: "Server is up and running" });
 });
 
-server.get("/dashboard", checkToken, (req, res) => {
-    res.send("This is the dashboard");
+server.post("/mobiletoken", async(req,res) => {
+    const { mobiletoken } = req.body;
+    try
+    {
+        const mobile_token_check = await CSRFToken.findOne({ token : mobiletoken});
+        const tokenAge = (Date.now() - mobile_token_check.createdAt) / (1000*60*60*24);
+        if(tokenAge > 30)
+        {
+            logMessage(`[=] Mobile : Token for user ${mobile_token_check.username} has expired`);
+            await CSRFToken.deleteOne({ token : mobile_token_check.token});
+            return res.status(400).json({message : "expired"}); 
+        }
+        else{
+            logMessage(`[=] Mobile : Token for user ${mobile_token_check.username} is valid`);
+            return res.status(200).json({ message : "valid" });
+        }
+    }
+    catch (e)
+    {
+        logMessage(`[*] Mobile token checking error ${e}`);
+        return res.status(200).json({ message : "Internal Server Error"});
+    }
 });
+
+
+
 
 server.post("/login", async (req, res) => {
     const { userUsername, userPwd , interface} = req.body;
