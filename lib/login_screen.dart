@@ -13,12 +13,20 @@ class _LoginScreenState extends State<LoginScreen> {
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   final _storage = FlutterSecureStorage(); // Create an instance of FlutterSecureStorage
+  int trial = 0;
 
+  @override
+  void initState() {
+    super.initState();
+    _autoLogin();
+  }
 
   Future<void> _autoLogin() async
   {
+    await Future.delayed(Duration(seconds: 2));
+
     final token = await _storage.read(key : 'auth_token');
-    if (token != null)
+    if (token != null && (trial  == 0))
       {
         final responce = await http.post(
           Uri.parse('http://192.168.31.28:8000/mobiletoken'),
@@ -41,6 +49,17 @@ class _LoginScreenState extends State<LoginScreen> {
                 Navigator.pushReplacementNamed(context, '/dashboard');
               }
           }
+        else if (responce.statusCode == 401)
+        {
+          final responceBody = json.decode(responce.body);
+          final message = responceBody['message'];
+          if (message == 'No token found')
+          {
+            String pop = "PLS login";
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pop)));
+            Navigator.pushReplacementNamed(context, '/');
+          }
+        }
         else if (responce.statusCode == 400)
             {
               final responceBody = json.decode(responce.body);
@@ -56,17 +75,12 @@ class _LoginScreenState extends State<LoginScreen> {
     else
       {
         String pop = "Long Live Token Not Found";
+        trial = trial +1;
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pop)));
         Navigator.pushReplacementNamed(context, '/');
       }
   }
 
-  @override
-  void initState()
-  {
-    super.initState();
-    _autoLogin();
-  }
 
   Future<void> _login() async {
     final username = _usernameController.text;

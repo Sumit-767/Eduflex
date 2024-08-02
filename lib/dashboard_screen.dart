@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class DashboardScreen extends StatefulWidget {
   @override
@@ -109,7 +112,48 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-class SettingsPage extends StatelessWidget {
+class SettingsPage extends StatefulWidget {
+  @override
+  _SettingsPageState createState() => _SettingsPageState();
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  final _emailController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _storage = FlutterSecureStorage();
+
+  Future<void> _updateProfile() async {
+    final email = _emailController.text;
+    final password = _passwordController.text;
+    final phone = _phoneController.text;
+    final token = await _storage.read(key: 'auth_token');
+
+    final response = await http.post(
+      Uri.parse('http://192.168.31.28:8000/changeprofile'),
+      headers: {
+        'Content-Type' : 'application/json',
+      },
+      body: json.encode ({
+              'Token': token,
+              'changeemail': email,
+              'changepwd': password,
+              'changephoneno': phone,
+              'interface': 'Mobileapp',
+      })
+    );
+
+    final responseBody = json.decode(response.body);
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(responseBody['message'])));
+      await _storage.delete(key: 'auth_token');
+      Navigator.pushReplacementNamed(context, '/');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(responseBody['message'])));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -122,10 +166,35 @@ class SettingsPage extends StatelessWidget {
           },
         ),
       ),
-      body: Center(child: Text('Settings Page')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _emailController,
+              decoration: InputDecoration(labelText: 'New Email'),
+            ),
+            TextField(
+              controller: _passwordController,
+              decoration: InputDecoration(labelText: 'New Password'),
+              obscureText: true,
+            ),
+            TextField(
+              controller: _phoneController,
+              decoration: InputDecoration(labelText: 'New Phone Number'),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _updateProfile,
+              child: Text('Update Profile'),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
+
 
 class GoodiesPage extends StatelessWidget {
   @override
