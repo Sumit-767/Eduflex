@@ -22,3 +22,21 @@
 [2024-08-02T05:42:15.511Z] [=] Mobile : Token for user 21104010 is valid
 [2024-08-02T05:44:38.248Z] [=] Mobile : Token for user 21104010 is valid
 [2024-08-02T05:46:14.392Z] [=] Mobile : Token for user 21104010 is valid
+[2024-08-02T06:35:03.737Z] [=] Mobile ::ffff:192.168.31.253 : Token for user 21104010 is valid
+[2024-08-02T06:41:57.373Z] [=] Mobile ::ffff:192.168.31.253 : Token for user 21104010 is valid
+[2024-08-02T06:44:15.333Z] [=] Mobile ::ffff:192.168.31.253 : Token for user 21104010 is valid
+[2024-08-02T06:46:26.829Z] [=] Mobile ::ffff:192.168.31.253 : Token for user 21104010 is valid
+[2024-08-02T07:08:16.704Z] [=] Mobile ::ffff:192.168.31.253 : Token for user 21104010 is valid
+[2024-08-02T07:11:36.745Z] [=] Mobile ::ffff:192.168.31.253 : Token for user 21104010 is valid
+[2024-08-02T07:12:06.342Z] [*] Internal server error: ReferenceError: tokencheck is not defined
+[2024-08-02T07:20:04.902Z] [=] User 21104010 attempting to log in
+[2024-08-02T07:20:04.907Z] [=] Mobileapp ::ffff:192.168.31.253 : User 21104010 successfully logged in
+[2024-08-02T07:20:04.930Z] [=] Mobileapp ::ffff:192.168.31.253 : Token provided for user 21104010
+[2024-08-02T07:27:55.503Z] [=] User 21104010 attempting to log in
+[2024-08-02T07:27:55.508Z] [=] Mobileapp ::ffff:192.168.31.253 : User 21104010 successfully logged in
+[2024-08-02T07:27:55.517Z] [=] Mobileapp ::ffff:192.168.31.253 : Token provided for user 21104010
+[2024-08-02T07:37:37.010Z] [*] Mobile token checking error TypeError: Cannot read properties of null (reading 'createdAt')
+[2024-08-02T07:37:56.355Z] [=] User 21104010 attempting to log in
+[2024-08-02T07:37:56.363Z] [=] Mobileapp ::ffff:192.168.31.253 : User 21104010 successfully logged in
+[2024-08-02T07:37:56.372Z] [=] Mobileapp ::ffff:192.168.31.253 : Token provided for user 21104010
+[2024-08-02T07:38:26.072Z] [=] Mobile ::ffff:192.168.31.253 : Token for user 21104010 is valid

@@ -74,27 +74,13 @@ server.use(express.json());
 server.use(express.static(path.join(__dirname, "public")));
 server.use(express.static("public"));
 
-const checkToken = async (req, res, next) => {
-    try {
-        const token = req.cookies.Token;
-        const decode = jwt.verify(token, serverSK);
-        const user_token = await CSRFToken.findOne({ token: decode.userId });
-        if (!user_token) {
-            logMessage("[-] Webapp : No token, redirecting to login");
-            return res.status(401).json({ message: "Unauthorized" });
-        }
-        next();
-    } catch (error) {
-        logMessage("CHECKTOKEN ERROR: " + error.message);
-        return res.status(401).json({ message: "Unauthorized" });
-    }
-};
 
 server.get("/ping", (req, res) => {
     res.status(200).json({ message: "Server is up and running" });
 });
 
 server.post("/mobiletoken", async(req,res) => {
+    const userIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const { mobiletoken } = req.body;
     try
     {
@@ -102,12 +88,16 @@ server.post("/mobiletoken", async(req,res) => {
         const tokenAge = (Date.now() - mobile_token_check.createdAt) / (1000*60*60*24);
         if(tokenAge > 30)
         {
-            logMessage(`[=] Mobile : Token for user ${mobile_token_check.username} has expired`);
+            logMessage(`[=] Mobileapp ${userIP} : Token for user ${mobile_token_check.username} has expired`);
             await CSRFToken.deleteOne({ token : mobile_token_check.token});
             return res.status(400).json({message : "expired"}); 
         }
+        else if(!mobile_token_check)
+        {
+            return res.status(401).json({message : "No token found"});
+        }
         else{
-            logMessage(`[=] Mobile : Token for user ${mobile_token_check.username} is valid`);
+            logMessage(`[=] Mobile ${userIP} : Token for user ${mobile_token_check.username} is valid`);
             return res.status(200).json({ message : "valid" });
         }
     }
@@ -119,9 +109,8 @@ server.post("/mobiletoken", async(req,res) => {
 });
 
 
-
-
 server.post("/login", async (req, res) => {
+    const userIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
     const { userUsername, userPwd , interface} = req.body;
     console.log( " API " , interface);
     logMessage(`[=] User ${userUsername} attempting to log in`);
@@ -130,11 +119,11 @@ server.post("/login", async (req, res) => {
         const user = await User.findOne({ username: userUsername });
 
         if (!user || user.password !== userPwd) {
-            logMessage(`[-] Unsuccessful login attempt for user ${userUsername}`);
+            logMessage(`[-] ${interface} ${userIP} : Unsuccessful login attempt for user ${userUsername}`);
             return res.status(401).json({ message: "Invalid username or password" });
         }
 
-        logMessage(`[=] User ${userUsername} successfully logged in`);
+        logMessage(`[=] ${interface} ${userIP} : User ${userUsername} successfully logged in`);
 
         const uniqueId = uuidv4();
         const payload = jwt.sign({ userId: uniqueId }, serverSK, { expiresIn: "15m" });
@@ -146,7 +135,7 @@ server.post("/login", async (req, res) => {
         
         if(interface == "Webapp")
         {
-            logMessage(`[=] Webapp : Token provided for user ${userUsername}`);
+            logMessage(`[=] ${interface} ${userIP} : Token provided for user ${userUsername}`);
             const token_Data = new CSRFToken({
                 token: uniqueId,
                 username: userUsername,
@@ -162,7 +151,7 @@ server.post("/login", async (req, res) => {
         }
         else if(interface == "Mobileapp")
         {
-            logMessage(`[=] Mobile : Token provided for user ${userUsername}`);
+            logMessage(`[=] ${interface} ${userIP} : Token provided for user ${userUsername}`);
             const LLT = uuidv4();
             const token_Data = new CSRFToken({
                 token: LLT,
@@ -182,7 +171,8 @@ server.post("/login", async (req, res) => {
 
 
 server.post("/register", async (req, res) => {
-    const { fullname, email , ph_no , reguserUsername, reguserPwd, confuserPwd } = req.body;
+    const userIP = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    const { fullname, email , ph_no , reguserUsername, reguserPwd, confuserPwd, interface } = req.body;
     const specialCharRegex = /[!@#\$%\^&\*\(\)_\-=+]/;
     const passwordMinLength = 8;
 
@@ -205,16 +195,83 @@ server.post("/register", async (req, res) => {
                 phone_number: ph_no
             });
             await newUser.save();
-            logMessage(`[=] New student registered: ${reguserUsername}`);
+            logMessage(`[=] ${interface} ${userIP} : New student registered: ${reguserUsername}`);
             return res.status(201).json({ message: "User registered successfully" });
         } catch (error) {
-            logMessage("[*] New student registration failed: " + error.message);
+            logMessage(`[*] ${interface} ${userIP} : New student registration failed: ${error.message} `);
             return res.status(500).json({message: "User registration failed"});
         }
     } else {
         return res.status(400).json({message : "Username already exists "});
     }
 });
+
+server.post("/changeprofile", async (req, res) => {
+    const userIP = "awiodjiwjd";
+    const { Token, changeemail, changepwd, changephoneno, interface } = req.body;
+    console.log("Token:", Token, "Email:", changeemail, "Password:", changepwd, "PhoneNo:", changephoneno);
+
+    // Check if the token is provided
+    if (Token) {
+        const tokencheck = await CSRFToken.findOne({ token: Token });
+
+        // Validate token
+        if (!tokencheck || tokencheck.token !== Token) {
+            logMessage(`[-] ${interface} ${userIP} : Invalid token provided for changing user data. Token: ${Token}`);
+            return res.status(400).json({ message: "Invalid token" });
+        }
+    }
+    const tokencheck = await CSRFToken.findOne({ token: Token });
+
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (changeemail && !emailRegex.test(changeemail)) {
+        logMessage(`[-] ${interface} ${userIP} : Failed to update profile. Invalid email format. Token: ${Token}`);
+        return res.status(400).json({ message: "Invalid email format." });
+    }
+
+    // Password strength validation
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/;
+    if (changepwd && !passwordRegex.test(changepwd)) {
+        logMessage(`[-] ${interface} ${userIP} : Failed to update profile. Weak password. Token: ${Token}`);
+        return res.status(400).json({
+            message: "Password must be at least 8 characters long, and contain at least one symbol, one uppercase letter, one lowercase letter, and one number."
+        });
+    }
+
+    // Phone number length validation
+    const phoneRegex = /^\d{10,11}$/;
+    if (changephoneno && !phoneRegex.test(changephoneno)) {
+        logMessage(`[-] ${interface} ${userIP} : Failed to update profile. Invalid phone number. Token: ${Token}`);
+        return res.status(400).json({ message: "Invalid phone number." });
+    }
+
+    // If all validations pass
+    try {
+        // Update the user data
+        await User.updateOne(
+            { username: tokencheck.username },
+            {
+                $set: {
+                    password: changepwd,
+                    email: changeemail,
+                    phone_number: changephoneno
+                }
+            },
+            { upsert: true }
+        );
+
+        // Delete the used token
+        await CSRFToken.deleteOne({ token: Token });
+
+        return res.status(200).json({ message: "Update successful." });
+
+    } catch (e) {
+        logMessage(`[*] Internal server error: ${e}`);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+});
+
 
 server.listen(8000, () => {
     console.log(`http://localhost:8000`);
