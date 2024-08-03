@@ -54,3 +54,9 @@
 [2024-08-02T09:51:32.295Z] [=] Mobileapp ::ffff:192.168.31.253 : User 21104010 successfully logged in
 [2024-08-02T09:51:32.305Z] [=] Mobileapp ::ffff:192.168.31.253 : Token provided for user 21104010
 [2024-08-02T09:53:40.716Z] [=] Mobile ::ffff:192.168.31.253 : Token for user 21104010 is valid
+[2024-08-02T18:19:17.509Z] [=] User 21104010 attempting to log in
+[2024-08-02T18:19:17.537Z] [=] Mobileapp 152.58.51.68 : User 21104010 successfully logged in
+[2024-08-02T18:19:17.554Z] [=] Mobileapp 152.58.51.68 : Token provided for user 21104010
+[2024-08-02T18:19:48.912Z] [=] User 21104010 attempting to log in
+[2024-08-02T18:19:48.918Z] [=] Mobileapp 152.58.51.68 : User 21104010 successfully logged in
+[2024-08-02T18:19:48.927Z] [=] Mobileapp 152.58.51.68 : Token provided for user 21104010

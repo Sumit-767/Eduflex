@@ -1,0 +1,24 @@
+[2024-08-03T18:34:41.474Z] [=] User 21104010 attempting to log in
+[2024-08-03T18:34:41.486Z] [=] Mobileapp 152.58.42.5 : User 21104010 successfully logged in
+[2024-08-03T18:34:41.503Z] [=] Mobileapp 152.58.42.5 : Token provided for user 21104010
+[2024-08-03T18:49:31.729Z] [=] Mobileapp 152.58.42.5 : New student registered: 21104010
+[2024-08-03T18:51:20.126Z] [=] User 21104010 attempting to log in
+[2024-08-03T18:51:20.140Z] [=] Mobileapp 152.58.42.5 : User 21104010 successfully logged in
+[2024-08-03T18:51:20.152Z] [=] Mobileapp 152.58.42.5 : Token provided for user 21104010
+[2024-08-03T18:53:24.555Z] [=] Mobileapp 152.58.42.5 : New student registered: 21104069
+[2024-08-03T18:53:46.145Z] [=] User 21104069 attempting to log in
+[2024-08-03T18:53:46.149Z] [-] Mobileapp 152.58.42.5 : Unsuccessful login attempt for user 21104069
+[2024-08-03T18:53:53.826Z] [=] User 21104069 attempting to log in
+[2024-08-03T18:53:53.830Z] [-] Mobileapp 152.58.42.5 : Unsuccessful login attempt for user 21104069
+[2024-08-03T18:54:15.740Z] [=] User 21104069 attempting to log in
+[2024-08-03T18:54:15.744Z] [=] Mobileapp 152.58.42.5 : User 21104069 successfully logged in
+[2024-08-03T18:54:15.752Z] [=] Mobileapp 152.58.42.5 : Token provided for user 21104069
+[2024-08-03T18:55:02.640Z] [=] User 21104069 attempting to log in
+[2024-08-03T18:55:02.644Z] [=] Mobileapp 152.58.42.5 : User 21104069 successfully logged in
+[2024-08-03T18:55:02.656Z] [=] Mobileapp 152.58.42.5 : Token provided for user 21104069
+[2024-08-03T18:55:24.660Z] [=] Mobileapp 152.58.42.5 : Token for user 21104069 is valid
+[2024-08-03T19:02:15.927Z] [-] Mobileapp 152.58.42.5 : Failed to update profile. Invalid email format. Token: null
+[2024-08-03T19:02:28.504Z] [-] Mobileapp 152.58.42.5 : Failed to update profile. Weak password. Token: null
+[2024-08-03T19:02:40.485Z] [-] Mobileapp 152.58.42.5 : Failed to update profile. Invalid phone number. Token: null
+[2024-08-03T19:02:47.344Z] [*] Internal server error: TypeError: Cannot read properties of null (reading 'username')
+[2024-08-03T19:02:53.154Z] [*] Internal server error: TypeError: Cannot read properties of null (reading 'username')
