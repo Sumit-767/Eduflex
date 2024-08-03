@@ -23,9 +23,17 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _autoLogin() async
   {
-    await Future.delayed(Duration(seconds: 2));
 
     final token = await _storage.read(key : 'auth_token');
+    if(token != null)
+      {
+        await Future.delayed(Duration(seconds: 2));
+      }
+    else
+      {
+        await Future.delayed(Duration(minutes: 10));
+      }
+
     if (token != null && (trial  == 0))
       {
         final responce = await http.post(
@@ -106,11 +114,19 @@ class _LoginScreenState extends State<LoginScreen> {
       if (token != null) {
         // Store the token securely
         await _storage.write(key: 'auth_token', value: token);
+        await _storage.write(key: 'user_type' , value: responseBody['userType']);
+        await _storage.write(key: 'username', value: username);
         print("Long-lived token stored securely.");
       }
-
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      Navigator.pushReplacementNamed(context, '/dashboard');
+      if (responseBody['userType'] == "Student") {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        Navigator.pushReplacementNamed(context, '/dashboard');
+      }
+      else if (responseBody['userType'] == "Mentor")
+      {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+        Navigator.pushReplacementNamed(context, '/mentordashboard');
+      }
     } else {
       final responseBody = json.decode(response.body);
       final message = responseBody['message'] ?? 'Login failed';
@@ -122,6 +138,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Future.delayed(Duration(minutes: 5));
     return Scaffold(
       appBar: AppBar(title: Text('Login')),
       body: Padding(

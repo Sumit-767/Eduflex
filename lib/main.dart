@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'login_screen.dart';
 import 'dashboard_screen.dart';
 import 'register_page.dart';
+import 'mentordashboard.dart';
 
 
 void main() {
@@ -21,7 +22,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => LoginScreen(),
         '/register': (context) => RegisterPage(),
         '/dashboard': (context) => DashboardScreen(),
-
+        '/mentordashboard': (context) => MentorDashboardScreen(),
       },
     );
   }

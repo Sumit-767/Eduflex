@@ -9,12 +9,14 @@ class RegisterPage extends StatefulWidget {
 
 class _RegisterPageState extends State<RegisterPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _fullnameController = TextEditingController();
+  final TextEditingController _firstnameController = TextEditingController();
+  final TextEditingController _lastnameController = TextEditingController();
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _credlylinkController = TextEditingController();
 
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
@@ -22,12 +24,15 @@ class _RegisterPageState extends State<RegisterPage> {
         Uri.parse('http://192.168.31.28:8000/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          'fullname': _fullnameController.text,
+          'firstname': _firstnameController.text,
+          'lastname' : _lastnameController.text,
           'reguserUsername': _usernameController.text,
           'email': _emailController.text,
           'ph_no': _phoneController.text,
           'reguserPwd': _passwordController.text,
           'confuserPwd': _confirmPasswordController.text,
+          'credlylink' : _credlylinkController.text,
+          'interface' : 'Mobileapp',
         }),
       );
 
@@ -57,11 +62,21 @@ class _RegisterPageState extends State<RegisterPage> {
           child: ListView(
             children: [
               TextFormField(
-                controller: _fullnameController,
-                decoration: InputDecoration(labelText: 'Full Name'),
+                controller: _firstnameController,
+                decoration: InputDecoration(labelText: 'First Name'),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please enter your name';
+                    return 'Please enter First name';
+                  }
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: _lastnameController,
+                decoration: InputDecoration(labelText: 'Last Name'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter Last name';
                   }
                   return null;
                 },
@@ -93,6 +108,10 @@ class _RegisterPageState extends State<RegisterPage> {
                   if (value == null || value.isEmpty) {
                     return 'Please enter your phone number';
                   }
+                  else if (value.length < 10)
+                    {
+                      return 'Please enter a valid phone number';
+                    }
                   return null;
                 },
               ),
@@ -117,6 +136,16 @@ class _RegisterPageState extends State<RegisterPage> {
                   }
                   if (value != _passwordController.text) {
                     return 'Passwords do not match';
+                  }
+                  return null;
+                },
+              ),
+              TextFormField(
+                controller: _credlylinkController,
+                decoration: InputDecoration(labelText: 'Your Credly profile link'),
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your link';
                   }
                   return null;
                 },
