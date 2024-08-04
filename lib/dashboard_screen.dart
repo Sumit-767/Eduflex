@@ -364,9 +364,30 @@ class _logoutState extends State<LogoutPage> {
   final _storage = FlutterSecureStorage();
 
   Future<void> _logout() async {
-    await _storage.delete(key: 'auth_token');
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Logged Out")));
-    Navigator.pushReplacementNamed(context, '/');
+    final token = await _storage.read(key: 'auth_token');
+    final response = await http.post(
+        Uri.parse('http://192.168.31.28:8000/logout'),
+        headers: {
+          'Content-Type' : 'application/json',
+        },
+        body: json.encode ({
+          'Token': token,
+          'interface': 'Mobileapp',
+        })
+    );
+
+    final responseBody = json.decode(response.body);
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(responseBody['message'])));
+      await _storage.delete(key: 'auth_token');
+      await _storage.delete(key: 'username');
+      await _storage.delete(key: 'user_type');
+      Navigator.pushReplacementNamed(context, '/');
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Unable to logout")));
+    }
+
   }
 
   @override

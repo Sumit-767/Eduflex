@@ -50,12 +50,18 @@ class _LoginScreenState extends State<LoginScreen> {
           {
             final responceBody = json.decode(responce.body);
             final message = responceBody['message'];
-            if (message == 'valid')
-              {
-                String pop = "Succesfull Auto Login";
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pop)));
-                Navigator.pushReplacementNamed(context, '/dashboard');
-              }
+            if (message == 'valid' && responceBody['user_type'] == "Student")
+            {
+              String pop = "Succesfull Auto Login";
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pop)));
+              Navigator.pushReplacementNamed(context, '/dashboard');
+            }
+            else if (message == 'valid' && responceBody['user_type'] == "Mentor")
+            {
+              String pop = "Succesfull Auto Login";
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(pop)));
+              Navigator.pushReplacementNamed(context, '/mentordashboard');
+            }
           }
         else if (responce.statusCode == 401)
         {
