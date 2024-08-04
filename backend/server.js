@@ -10,6 +10,7 @@ const readline = require("readline");
 const jwt = require("jsonwebtoken");
 const { v4: uuidv4, stringify } = require("uuid");
 const { format } = require('date-fns');
+const FormData = require('form-data');
 const multer = require("multer");
 require("dotenv").config();
 const cors = require("cors");
@@ -17,6 +18,7 @@ const CSRFToken = require("./models/csrfttoken");
 const User = require("./models/users");
 const Profiles = require("./models/profiles");
 const Credly = require("./models/credly");
+const Mentor = require("./models/mentees");
 
 
 const serverSK = process.env.SERVER_SEC_KEY;
@@ -67,6 +69,138 @@ const logMessage = (message) => {
     });
 };
 
+async function addMentees(userUsername, filename, batchname, selection,interface,userIP) {
+    const form = new FormData();
+    const filePath = `C:/Eduflex/backend/uploads/${userUsername}/${filename}`;
+    form.append('file', fs.createReadStream(filePath));
+    form.append('selection', selection);
+    console.log(" here in async function");
+    try {
+        const form = new FormData();
+        const filePath = `C:/Eduflex/backend/uploads/${userUsername}/${filename}`;
+        form.append('file', fs.createReadStream(filePath));
+        form.append('selection', selection.toLowerCase());
+
+        console.log("Uploading file...");
+
+        const response = await axios.post('http://localhost:5000/upload', form, {
+            headers: {
+                ...form.getHeaders(),
+            },
+        });
+
+        const data = response.data.data;
+        console.log('Extracted Data:', data);
+
+        const mentorStudents = [];
+
+        for (const name of data) {
+            const parts = name.split(' ');
+            if (parts.length >= 2) {
+                const firstname = parts[0].toLowerCase();
+                const lastname = parts[1].toLowerCase();
+                
+
+                const userExists = await User.findOne({ 
+                    $or: [
+                        { firstname: new RegExp(`^${firstname}$`, 'i'), lastname: new RegExp(`^${lastname}$`, 'i') },
+                        { firstname: new RegExp(`^${lastname}$`, 'i'), lastname: new RegExp(`^${firstname}$`, 'i') }
+                    ]
+                });
+
+                if (userExists) {
+                    mentorStudents.push(name);
+                }
+            }
+        }
+
+        if (mentorStudents.length > 0) {
+            const existingBatch = await Mentor.findOne({ batch: batchname });
+
+            if (existingBatch) {
+                // Append new students to the existing batch
+                const uniqueStudents = new Set([...existingBatch.students, ...mentorStudents]);
+                existingBatch.students = Array.from(uniqueStudents);
+                await existingBatch.save();
+                console.log('Mentees updated successfully');
+                logMessage(`[=] ${interface} ${userIP} : New mentees existing group under mentor ${up_username} `) 
+            } else {
+                // Create a new batch
+                const newMentees = new Mentor({
+                    mentor: userUsername,
+                    students: mentorStudents,
+                    batch: batchname,
+                });
+                await newMentees.save();
+                console.log('Mentees added successfully');
+                logMessage(`[=] ${interface} ${userIP} : New mentees added under mentor ${up_username} `) 
+
+            }
+        }
+         else {
+            console.log('No valid mentees found');
+        }
+    } catch (error) {
+        console.error('Error processing mentees:', error);
+    }
+}
+
+async function fetchAndSaveBadges(userUsername) {
+    try {
+        // Retrieve user data from Credly and User collections
+        const mycredly_data = await Credly.findOne({ username: userUsername });
+        const db_user = await User.findOne({ username: userUsername });
+        const firstname = db_user.firstname;
+        const lastname = db_user.lastname;
+
+        if (!mycredly_data) {
+            throw new Error('User not found');
+        }
+
+        const credlylink = mycredly_data.link;
+        const response = await axios.get('http://localhost:5000/fetch-badges', {
+            params: { url: credlylink }
+        });
+
+        const badgeDataArray = response.data;
+
+        // Fetch existing badges for this user from the database
+        const existingBadges = await Credly.find({ link: credlylink });
+
+        // Create a set of existing badge identifiers (e.g., certificate name and issue date)
+        const existingBadgeIdentifiers = new Set(existingBadges.map(badge => `${badge.cert_name}-${badge.issue_date}`));
+
+        // Prepare an array to hold new badges
+        const newBadges = [];
+
+        // Identify new badges
+        for (const badge of badgeDataArray) {
+            const badgeIdentifier = `${badge.issuer_name}-${badge.certificate_name}-${badge.issued_date}`;
+            if (!existingBadgeIdentifiers.has(badgeIdentifier)) {
+                newBadges.push({
+                    firstname: firstname,
+                    lastname: lastname,
+                    link: credlylink,
+                    issuer_name: badge.issuer_name,
+                    cert_name: badge.certificate_name,
+                    issue_date: badge.issued_date
+                });
+            }
+        }
+
+        // Insert only new badges into the database
+        if (newBadges.length > 0) {
+            await Credly.insertMany(newBadges);
+            console.log(`Inserted ${newBadges.length} new badges.`);
+        } else {
+            console.log('No new badges to insert.');
+        }
+    } catch (error) {
+        console.error("Error fetching and saving badges:", error);
+    }
+}
+
+
 server.set("view engine", "hbs");
 server.set("views", __dirname + "/views");
 server.use("/scripts", express.static(__dirname + "/public/scripts"));
@@ -102,23 +236,31 @@ server.post("/mobiletoken", async(req,res) => {
     const userIP = response.data.ip;
     
     const { mobiletoken } = req.body;
+    console.log(mobiletoken);
     try
     {
         const mobile_token_check = await CSRFToken.findOne({ token : mobiletoken});
+        console.log("mobile token db: ", mobile_token_check);
+        const user = await User.findOne({username : mobile_token_check.username})
+        console.log('user found ');
         const tokenAge = (Date.now() - mobile_token_check.createdAt) / (1000*60*60*24);
         if(tokenAge > 30)
         {
+            console.log("token expired");
             logMessage(`[=] Mobileapp ${userIP} : Token for user ${mobile_token_check.username} has expired`);
             await CSRFToken.deleteOne({ token : mobile_token_check.token});
             return res.status(400).json({message : "expired"}); 
         }
         else if(!mobile_token_check)
         {
+            console.log("token not ofund");
             return res.status(401).json({message : "No token found"});
         }
         else{
+            fetchAndSaveBadges(mobile_token_check.username);
             logMessage(`[=] Mobileapp ${userIP} : Token for user ${mobile_token_check.username} is valid`);
-            return res.status(200).json({ message : "valid" });
+            console.log("token found");
+            return res.status(200).json({ message : "valid" ,user_type : user.user_type });
         }
     }
     catch (e)
@@ -168,6 +310,7 @@ server.post("/login", async (req, res) => {
                 secure: process.env.NODE_ENV === 'production', // Set to true if serving over HTTPS
                 maxAge: 15 * 60 * 1000 // 15 minutes
             });
+            fetchAndSaveBadges(userUsername);
             return res.status(200).json({ message: "Login successful" });
         }
         else if(interface == "Mobileapp")
@@ -188,6 +331,13 @@ server.post("/login", async (req, res) => {
         logMessage("[*] Database connection failed: " + error.message);
         return res.status(500).json({ message: "Internal Server Error" });
     }
+});
+
+server.post("/logout", async(req,res)=>{
+    const {Token} = req.body;
+    console.log("token logged out :" , Token)
+    await CSRFToken.deleteOne({ token : Token});
+    return res.status(200).json({ message : "Logged out "});
 });
 
 server.post("/register", async (req, res) => {
@@ -344,7 +494,7 @@ server.post('/upload', upload.single('file'), async (req, res) => {
         const response = await axios.get('https://api.ipify.org?format=json');
         const userIP = response.data.ip;
 
-        const { Token,up_username, post_type, post_desc,filename, interface } = req.body;
+        const { Token,up_username, post_type, post_desc,filename, interface ,selection } = req.body;
 
         const tokencheck = CSRFToken.findOne({token : Token});
         let fullname
@@ -354,19 +504,28 @@ server.post('/upload', upload.single('file'), async (req, res) => {
             fullname = username_data.fullname; 
         }
 
-        const newpost = new Profiles({
-            fullname: String(fullname),
-            username: String(up_username),
-            postID: String(up_username +'-'+ uuidv4()), // Ensure the concatenation is a string
-            file: String(`uploads/${up_username}/${up_username}-${filename}`),
-            post_type: String(post_type),
-            post_desc: String(post_desc),
-            post_likes: Number(0), // Keep this as a number
-            interface: String(interface),
-        });
-        newpost.save();     
-        logMessage(`[=] ${interface} ${userIP} : Posted a file ${up_username}-${filename}`);
-        res.status(200).json({message : "Uploaded Successfully"});
+        if (post_type == "post")
+        {
+            const newpost = new Profiles({
+                fullname: String(fullname),
+                username: String(up_username),
+                postID: String(up_username +'-'+ uuidv4()), // Ensure the concatenation is a string
+                file: String(`uploads/${up_username}/${up_username}-${filename}`),
+                post_type: String(post_type),
+                post_desc: String(post_desc),
+                post_likes: Number(0), // Keep this as a number
+                interface: String(interface),
+            });
+            newpost.save();     
+            logMessage(`[=] ${interface} ${userIP} : Posted a file ${up_username}-${filename}`);
+            res.status(200).json({message : "Uploaded Successfully"});
+        }
+
+        else if (post_type == "mentor_file_upload")
+        {
+            console.log( up_username + " addmin mentees");
+            addMentees(up_username , req.file.filename , post_desc, selectionm, userIP , interface);
+        }
 
 
     } catch (error) {

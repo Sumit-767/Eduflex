@@ -3,9 +3,105 @@ from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
+import os
+import pandas as pd
+import pdfplumber
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
+CORS(app)  
+UPLOAD_FOLDER = 'apiuploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+def extract_ids_from_pdf(file_path):
+    ids = []
+    with pdfplumber.open(file_path) as pdf:
+        for page in pdf.pages:
+            table = page.extract_table()
+            if table:
+                for row in table:
+                    for cell in row:
+                        if cell and cell.isdigit():
+                            ids.append(int(cell))
+    return ids
+
+def extract_names_from_pdf(file_path):
+    names = []
+    
+    def is_integer(value):
+        try:
+            word = int(value)
+            return True
+        except ValueError:
+            if(len(value) < 4 ):
+                return True
+            return False
+
+    with pdfplumber.open(file_path) as pdf:
+        for page in pdf.pages:
+            table = page.extract_table()
+            if table:
+                for row in table:
+                    for cell in row:
+                        if cell and not is_integer(cell):
+                            names.append(cell)
+    
+    return names
+
+def extract_ids_from_excel(file_path):
+    ids = []
+    df = pd.read_excel(file_path)
+    for column in df.columns:
+        ids.extend(df[column].dropna().astype(str).str.extract('(\d+)')[0].dropna().astype(int).tolist())
+    return ids
+
+def extract_names_from_excel(file_path):
+    names = []
+    df = pd.read_excel(file_path)
+    for column in df.columns:
+        names.extend(df[column].dropna().astype(str).tolist())
+    return names
+
+@app.route('/upload', methods=['POST'])
+def upload_file():
+    if 'file' not in request.files:
+        return jsonify({'message': 'No file part'}), 400
+
+    file = request.files['file']
+    selection = request.form.get('selection', 'id')  # Default to 'id' if not specified
+
+    if file.filename == '':
+        return jsonify({'message': 'No selected file'}), 400
+
+    if file:
+        filename = file.filename
+        file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(file_path)
+
+        if filename.endswith('.pdf'):
+            if selection == 'id':
+                data = extract_ids_from_pdf(file_path)
+            elif selection == 'name':
+                data = extract_names_from_pdf(file_path)
+            else:
+                return jsonify({'message': 'Invalid selection type'}), 400
+        elif filename.endswith('.xlsx') or filename.endswith('.xls'):
+            if selection == 'id':
+                data = extract_ids_from_excel(file_path)
+            elif selection == 'name':
+                data = extract_names_from_excel(file_path)
+            else:
+                return jsonify({'message': 'Invalid selection type'}), 400
+        else:
+            return jsonify({'message': 'Unsupported file type'}), 400
+
+        return jsonify({'data': data})
+
+    return jsonify({'message': 'Failed to upload file'}), 500
+
+
 
 @app.route('/fetch-badges', methods=['GET'])
 def fetch_badges():
