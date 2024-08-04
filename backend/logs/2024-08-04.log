@@ -56,3 +56,15 @@
 [2024-08-04T14:05:12.735Z] [=] Mobileapp 152.58.42.119 : Token for user Sonal Jain is valid
 [2024-08-04T14:11:46.677Z] [=] Mobileapp 152.58.42.119 : Token for user Sonal Jain is valid
 [2024-08-04T14:13:39.269Z] [=] Mobileapp 152.58.42.119 : Token for user Sonal Jain is valid
+[2024-08-04T15:08:30.765Z] [*] Mobileapp 152.58.42.119 : Failed to delete file: Error: ENOENT: no such file or directory, unlink 'C:\Eduflex\backend\uploads\Sonal Jain\Sonal Jain-undefined'
+[2024-08-04T15:19:53.424Z] [=] Mobileapp 152.58.42.119 : Token for user Sonal Jain is valid
+[2024-08-04T15:23:55.508Z] [=] 152.58.42.119 Mobileapp : New mentees existing group under mentor Sonal Jain 
+[2024-08-04T15:27:32.124Z] [=] Mobileapp 152.58.42.119 : New student registered: 21104087
+[2024-08-04T15:28:21.146Z] [=] User 21104087 attempting to log in
+[2024-08-04T15:28:21.150Z] [=] Mobileapp 152.58.42.119 : User 21104087 successfully logged in
+[2024-08-04T15:28:21.170Z] [=] Mobileapp 152.58.42.119 : Token provided for user 21104087
+[2024-08-04T15:28:38.381Z] [=] User Sonal Jain attempting to log in
+[2024-08-04T15:28:38.386Z] [=] Mobileapp 152.58.42.119 : User Sonal Jain successfully logged in
+[2024-08-04T15:28:38.389Z] [=] Mobileapp 152.58.42.119 : Token provided for user Sonal Jain
+[2024-08-04T15:29:48.444Z] [=] 152.58.42.119 Mobileapp : New mentees existing group under mentor Sonal Jain 
+[2024-08-04T15:31:04.703Z] [=] Mobileapp 152.58.42.119 : Token for user Sonal Jain is valid

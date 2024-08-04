@@ -123,7 +123,7 @@ async function addMentees(userUsername, filename, batchname, selection,interface
                 existingBatch.students = Array.from(uniqueStudents);
                 await existingBatch.save();
                 console.log('Mentees updated successfully');
-                logMessage(`[=] ${interface} ${userIP} : New mentees existing group under mentor ${up_username} `) 
+                logMessage(`[=] ${interface} ${userIP} : New mentees existing group under mentor ${userUsername} `) 
             } else {
                 // Create a new batch
                 const newMentees = new Mentor({
@@ -133,7 +133,7 @@ async function addMentees(userUsername, filename, batchname, selection,interface
                 });
                 await newMentees.save();
                 console.log('Mentees added successfully');
-                logMessage(`[=] ${interface} ${userIP} : New mentees added under mentor ${up_username} `) 
+                logMessage(`[=] ${interface} ${userIP} : New mentees added under mentor ${userUsername} `) 
 
             }
         }
@@ -524,7 +524,7 @@ server.post('/upload', upload.single('file'), async (req, res) => {
         else if (post_type == "mentor_file_upload")
         {
             console.log( up_username + " addmin mentees");
-            addMentees(up_username , req.file.filename , post_desc, selectionm, userIP , interface);
+            addMentees(up_username , req.file.filename , post_desc, selection, userIP , interface);
         }
 
 
@@ -572,6 +572,74 @@ server.get("/myprofile", async(req,res)=> {
         }
     }
 
+});
+
+server.post("/mybatches", async(req,res) =>{
+    const response = await axios.get('https://api.ipify.org?format=json');
+    const userIP = response.data.ip;
+    console.log("recived batches request")
+    const {Token , username , interface} = req.body;
+    if(Token)
+    {
+        try
+        {
+            console.log("fetching data from db")
+            tocken_check = await CSRFToken.findOne({ token : Token});
+            if (tocken_check.username == username )
+            {
+                const batches = await Mentor.find({mentor : username})
+                if (batches.length > 0 )
+                {
+                    res.status(200).json({ data: batches });
+                    logMessage(`${interface} ${userIP} : Mentor ${username} fetch their badges info`);
+                }
+                else
+                {
+                    res.status(201);
+                }
+            }
+        }
+        catch(e)
+        {
+            logMessage(`${interface} ${userIP} : Internal server error : ${e}`);
+            res.status(500);
+        }
+    }
+    
+
+});
+
+server.post('/delete-batch', async (req, res) => {
+    const response = await axios.get('https://api.ipify.org?format=json');
+    const userIP = response.data.ip;
+
+    const { username, batchName,Token } = req.body; // Extract username and batchName from request body
+    console.log(username , batchName, Token)
+    if (Token) 
+    {    
+
+        try {
+            tocken_check = await CSRFToken.findOne({ token : Token})
+            if (tocken_check.username == username )
+            {// Find and delete the batch for the given username and batch name
+                console.log("valid mentor")
+                const result = await Mentor.findOneAndDelete({
+                    mentor: username,
+                    batch: batchName
+                });
+
+                if (result) {
+                    console.log("deleted batch")
+                    res.status(200).json({ message: 'Batch deleted successfully' });
+                } else {
+                    res.status(404).json({ message: 'Batch not found' });
+                }
+            }
+        } catch (error) {
+            console.error(`[*] ${userIP} : Internal server error ${error}`);
+            res.status(500).json({ message: 'Internal server error' });
+        }
+    }
 });
 
 

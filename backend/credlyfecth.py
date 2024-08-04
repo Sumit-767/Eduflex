@@ -59,9 +59,23 @@ def extract_ids_from_excel(file_path):
 
 def extract_names_from_excel(file_path):
     names = []
+    
+    def is_integer(value):
+        try:
+            word = int(value)
+            word = float(value)
+            return True
+        except ValueError:
+            if len(value) < 4:
+                return True
+            return False
+    
     df = pd.read_excel(file_path)
     for column in df.columns:
-        names.extend(df[column].dropna().astype(str).tolist())
+        for value in df[column].dropna().astype(str).tolist():
+            if not is_integer(value):
+                names.append(value)
+    
     return names
 
 @app.route('/upload', methods=['POST'])
@@ -94,6 +108,7 @@ def upload_file():
                 data = extract_names_from_excel(file_path)
             else:
                 return jsonify({'message': 'Invalid selection type'}), 400
+        
         else:
             return jsonify({'message': 'Unsupported file type'}), 400
 
