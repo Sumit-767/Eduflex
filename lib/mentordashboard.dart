@@ -39,10 +39,10 @@ class _MentorDashboardScreenState extends State<MentorDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Dashboard'),
+        title: const Text('Dashboard'),
         actions: [
           IconButton(
-            icon: Icon(Icons.arrow_back),
+            icon: const Icon(Icons.arrow_back),
             onPressed: () {
               Navigator.pop(context);
             },
@@ -53,38 +53,38 @@ class _MentorDashboardScreenState extends State<MentorDashboardScreen> {
         child: ListView(
           padding: EdgeInsets.zero,
           children: <Widget>[
-            DrawerHeader(
+            const DrawerHeader(
               child: Text('Menu'),
               decoration: BoxDecoration(
                 color: Colors.blue,
               ),
             ),
             ListTile(
-              title: Text('Home'),
+              title: const Text('Home'),
               onTap: () => _onItemTapped(0),
             ),
             ListTile(
-              title: Text('Profile'),
+              title: const Text('Profile'),
               onTap: () => _onItemTapped(1),
             ),
             ListTile(
-              title: Text('Post Permission'),
+              title: const Text('Post Permission'),
               onTap: () => _onItemTapped(2),
             ),
             ListTile(
-              title: Text('Mentor Group'),
+              title: const Text('Mentor Group'),
               onTap: () => _onItemTapped(3),
             ),
             ListTile(
-              title: Text('Settings'),
+              title: const Text('Settings'),
               onTap: () => _onItemTapped(4),
             ),
             ListTile(
-              title: Text('Goodies'),
+              title: const Text('Goodies'),
               onTap: () => _onItemTapped(5),
             ),
             ListTile(
-              title: Text('Logout'),
+              title: const Text('Logout'),
               onTap: () => _onItemTapped(6),
             ),
           ],
@@ -100,15 +100,15 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Home'),
+        title: const Text('Home'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
       ),
-      body: Center(child: Text('Mentor Page')),
+      body: const Center(child: Text('Mentor Page')),
     );
   }
 }
@@ -118,15 +118,15 @@ class ProfilePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Profile'),
+        title: const Text('Profile'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
       ),
-      body: Center(child: Text('Profile Page')),
+      body: const Center(child: Text('Profile Page')),
     );
   }
 }
@@ -141,15 +141,15 @@ class _PostPermissionPageState extends State<PostPermissionPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Students posts'),
+        title: const Text('Students posts'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
       ),
-      body: Center(child: Text('Allow posts')),
+      body: const Center(child: Text('Allow posts')),
     );
   }
 }
@@ -162,8 +162,112 @@ class MentorGroupPage extends StatefulWidget{
 class _MentorGroupPageState extends State<MentorGroupPage> {
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _selectioncriteria = TextEditingController();
-  final _storage = FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage();
   File? _selectedFile;
+  List<dynamic> _batches = [];
+  bool _isLoading = false;
+  final List<bool> _isExpandedList = [];
+
+  @override
+  void intiState()
+  {
+    super.initState();
+    _fetchBatches();
+  }
+
+  Future<void> _fetchBatches() async{
+    final token = await _storage.read(key: 'auth_token');
+    final username = await _storage.read(key: 'username');
+    setState(() {
+      _isLoading = true;
+    });
+
+    final response = await http.post(
+        Uri.parse('http://192.168.31.28:8000/mybatches'),
+        headers: {
+          'Content-Type' : 'application/json',
+        },
+        body: json.encode ({
+          'Token': token,
+          'username': username,
+          'interface': 'Mobileapp',
+        })
+    );
+
+    if (response.statusCode == 200) {
+      final responseData = jsonDecode(response.body);
+      final List<dynamic> data = responseData['data'] ?? []; // Default to empty list if null
+
+      print("****************************** \n  $data \n ****************************** ");
+      setState(() {
+        // Ensure data is correctly handled
+        _batches = data.where((item) => item != null).toList();
+      });
+    }
+    else if (response.statusCode == 201)
+    {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("No batches alloted")));
+    }
+
+    else if (response.statusCode == 400)
+    {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Improper call to database")));
+    }
+    else if (response.statusCode == 500)
+    {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Internal Server Error")));
+    }
+    else
+      {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Couldn't fetch your batches")));
+      }
+    setState(() {
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _deleteBadge(String batchName) async {
+    print("************ delete $batchName");
+    final token = await _storage.read(key: 'auth_token');
+    final username = await _storage.read(key: 'username');
+
+    try {
+      final request = await http.post(
+        Uri.parse('http://192.168.31.28:8000/delete-batch'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'Token' : token,
+          'username': username,
+          'batchName' : batchName,
+          'interface': 'Mobileapp'
+        })
+      );
+      print(jsonDecode(request.body));
+
+      if (request.statusCode == 200) {
+        // Successfully deleted batch
+        setState(() {
+          _fetchBatches(); // Refresh the list after deletion
+        });
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Batch $batchName has been deleted")));
+
+      } else if (request.statusCode == 404 ) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Batch $batchName not found")));
+      }
+      else if (request.statusCode == 500 ) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Internal server error")));
+      }
+    } catch (e) {
+      print('Error deleting batch: $e');
+    }
+  }
+
+
+  Future<void> _refresh() async{
+    await _fetchBatches();
+  }
 
   void _pickFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
@@ -207,7 +311,6 @@ class _MentorGroupPageState extends State<MentorGroupPage> {
     try {
       final response = await request.send();
       if (response.statusCode == 200) {
-        print('File uploaded successfully');
         setState(() {
           _selectedFile = null;
           _descriptionController.clear();
@@ -232,8 +335,8 @@ class _MentorGroupPageState extends State<MentorGroupPage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: Icon(Icons.attach_file),
-                title: Text('Select File'),
+                leading: const Icon(Icons.attach_file),
+                title: const Text('Select File'),
                 onTap: _pickFile,
               ),
               if (_selectedFile != null)
@@ -243,19 +346,19 @@ class _MentorGroupPageState extends State<MentorGroupPage> {
                     children: [
                       Text(
                         'Selected File: ${path.basename(_selectedFile!.path)}',
-                        style: TextStyle(fontSize: 16),
+                        style: const TextStyle(fontSize: 16),
                       ),
-                      SizedBox(height: 10),
+                      const SizedBox(height: 10),
                       TextField(
                         controller: _descriptionController,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Batch Name',
                           border: OutlineInputBorder(),
                         ),
                       ),
                       TextField(
                         controller: _selectioncriteria,
-                        decoration: InputDecoration(
+                        decoration: const InputDecoration(
                           labelText: 'Name / Moodle',
                           border: OutlineInputBorder(),
                         ),
@@ -267,7 +370,7 @@ class _MentorGroupPageState extends State<MentorGroupPage> {
                 onPressed: () {
                   _uploadFile(context);
                 },
-                child: Text('Upload'),
+                child: const Text('Upload'),
               ),
             ],
           ),
@@ -280,18 +383,62 @@ class _MentorGroupPageState extends State<MentorGroupPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('My Mentees'),
+        title: const Text('My Mentees'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
       ),
-      body: Center(child: Text('welcome')),
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+          child: _isLoading ? const Center(child: CircularProgressIndicator())
+               : ListView.builder(
+                  itemCount: _batches.length,
+              itemBuilder: (context, index) {
+                final batch = _batches[index];
+                final batchName = batch['batch'] ?? 'Unknown Batch'; // Ensure the correct key
+                final students = batch['students'] ?? []; // Ensure 'students' is a list
+
+                return Card(
+                  margin: const EdgeInsets.all(10),
+                  elevation: 5,
+                  child: Padding(
+                    padding: const EdgeInsets.all(10.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          batchName,
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 10),
+                        Text('Number of students: ${students.length}'),
+                        const SizedBox(height: 5),
+                        if (students.isNotEmpty)
+                          Text(
+                            'Students: ${students.join(', ')}',
+                            style: const TextStyle(color: Colors.grey),
+                          ),
+                        Align(
+                          alignment: Alignment.topRight,
+                          child: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.redAccent),
+                            onPressed: () => _deleteBadge(batch['batch']), // Ensure '_id' is the correct key
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }
+
+          )
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showUploadModal(context),
-        child: Icon(Icons.upload_file),
+        child: const Icon(Icons.person_add),
       ),
     );
   }
@@ -306,7 +453,7 @@ class _SettingsPageState extends State<SettingsPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _storage = FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage();
 
   Future<void> _updateProfile() async {
     final email = _emailController.text;
@@ -343,9 +490,9 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Settings'),
+        title: const Text('Settings'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
@@ -357,21 +504,21 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             TextField(
               controller: _emailController,
-              decoration: InputDecoration(labelText: 'New Email'),
+              decoration: const InputDecoration(labelText: 'New Email'),
             ),
             TextField(
               controller: _passwordController,
-              decoration: InputDecoration(labelText: 'New Password'),
+              decoration: const InputDecoration(labelText: 'New Password'),
               obscureText: true,
             ),
             TextField(
               controller: _phoneController,
-              decoration: InputDecoration(labelText: 'New Phone Number'),
+              decoration: const InputDecoration(labelText: 'New Phone Number'),
             ),
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
             ElevatedButton(
               onPressed: _updateProfile,
-              child: Text('Update Profile'),
+              child: const Text('Update Profile'),
             ),
           ],
         ),
@@ -385,15 +532,15 @@ class GoodiesPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Goodies'),
+        title: const Text('Goodies'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
       ),
-      body: Center(child: Text('Goodies Page')),
+      body: const Center(child: Text('Goodies Page')),
     );
   }
 }
@@ -404,7 +551,7 @@ class LogoutPage extends StatefulWidget {
 }
 
 class _logoutState extends State<LogoutPage> {
-  final _storage = FlutterSecureStorage();
+  final _storage = const FlutterSecureStorage();
 
   Future<void> _logout() async {
     final token = await _storage.read(key: 'auth_token');
@@ -428,7 +575,7 @@ class _logoutState extends State<LogoutPage> {
       await _storage.delete(key: 'user_type');
       Navigator.pushReplacementNamed(context, '/');
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Unable to logout")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Unable to logout")));
     }
   }
 
@@ -436,9 +583,9 @@ class _logoutState extends State<LogoutPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Logout'),
+        title: const Text('Logout'),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
@@ -450,7 +597,7 @@ class _logoutState extends State<LogoutPage> {
           children: [
             ElevatedButton(
               onPressed: _logout,
-              child: Text('Logout ?'),
+              child: const Text('Logout ?'),
             ),
           ],
         ),
