@@ -1,0 +1,54 @@
+[2024-07-31T09:58:33.125Z] [=] User undefined attempting to log in
+[2024-07-31T09:58:33.156Z] [-] Unsuccessful login attempt for user undefined
+[2024-07-31T10:06:36.898Z] [=] User 21104010 attempting to log in
+[2024-07-31T10:06:36.920Z] [=] User 21104010 successfully logged in
+[2024-07-31T10:06:36.955Z] [=] Token provided for user 21104010
+[2024-07-31T10:40:04.459Z] [=] Webapp : User 21104010 attempting to log in
+[2024-07-31T10:40:04.478Z] [=] User 21104010 successfully logged in
+[2024-07-31T10:40:46.346Z] [=] Webapp : User 21104010 attempting to log in
+[2024-07-31T10:40:46.350Z] [=] User 21104010 successfully logged in
+[2024-07-31T10:40:54.267Z] [=] Webapp : User 21104010 attempting to log in
+[2024-07-31T10:40:54.278Z] [=] User 21104010 successfully logged in
+[2024-07-31T10:40:54.460Z] [=] Webapp : User 21104010 attempting to log in
+[2024-07-31T10:40:54.471Z] [=] User 21104010 successfully logged in
+[2024-07-31T10:42:27.418Z] [=] Webapp : User 21104010 attempting to log in
+[2024-07-31T10:42:27.422Z] [=] User 21104010 successfully logged in
+[2024-07-31T10:42:27.432Z] [=] Webapp : Token provided for user 21104010
+[2024-07-31T10:54:27.644Z] [=] Webapp : User 21104010 attempting to log in
+[2024-07-31T10:54:27.649Z] [=] User 21104010 successfully logged in
+[2024-07-31T10:54:27.660Z] [=] Mobile : Token provided for user 21104010
+[2024-07-31T10:54:27.668Z] [*] Database connection failed: E11000 duplicate key error collection: RMS.csrftokens index: username_1 dup key: { username: "21104010" }
+[2024-07-31T10:55:49.757Z] [=] Webapp : User 21104010 attempting to log in
+[2024-07-31T10:55:49.770Z] [=] User 21104010 successfully logged in
+[2024-07-31T10:55:49.794Z] [=] Mobile : Token provided for user 21104010
+[2024-07-31T10:55:49.797Z] [*] Database connection failed: E11000 duplicate key error collection: RMS.csrftokens index: username_1 dup key: { username: "21104010" }
+[2024-07-31T10:57:12.255Z] [=] Webapp : User 21104010 attempting to log in
+[2024-07-31T10:57:12.259Z] [=] User 21104010 successfully logged in
+[2024-07-31T10:57:12.268Z] [=] Mobile : Token provided for user 21104010
+[2024-07-31T10:57:12.271Z] [*] Database connection failed: E11000 duplicate key error collection: RMS.csrftokens index: username_1 dup key: { username: "21104010" }
+[2024-07-31T10:58:34.604Z] [=] Webapp : User 21104010 attempting to log in
+[2024-07-31T10:58:34.619Z] [=] User 21104010 successfully logged in
+[2024-07-31T10:58:34.647Z] [=] Mobile : Token provided for user 21104010
+[2024-07-31T10:58:34.651Z] [*] Database connection failed: E11000 duplicate key error collection: RMS.csrftokens index: username_1 dup key: { username: "21104010" }
+[2024-07-31T11:03:57.582Z] [=] User 21104010 attempting to log in
+[2024-07-31T11:03:57.596Z] [=] User 21104010 successfully logged in
+[2024-07-31T11:03:57.606Z] [=] Mobile : Token provided for user 21104010
+[2024-07-31T11:03:57.618Z] [*] Database connection failed: Stringified UUID is invalid
+[2024-07-31T11:04:44.893Z] [=] User 21104010 attempting to log in
+[2024-07-31T11:04:44.905Z] [=] User 21104010 successfully logged in
+[2024-07-31T11:04:44.912Z] [=] Mobile : Token provided for user 21104010
+[2024-07-31T11:04:44.924Z] [*] Database connection failed: Stringified UUID is invalid
+[2024-07-31T11:08:54.750Z] [=] User 21104010 attempting to log in
+[2024-07-31T11:08:54.766Z] [=] User 21104010 successfully logged in
+[2024-07-31T11:08:54.775Z] [=] Mobile : Token provided for user 21104010
+[2024-07-31T13:03:23.814Z] [=] New student registered: 12345678
+[2024-07-31T13:03:45.012Z] [=] User 12345678 attempting to log in
+[2024-07-31T13:03:45.017Z] [=] User 12345678 successfully logged in
+[2024-07-31T13:03:45.026Z] [=] Webapp : Token provided for user 12345678
+[2024-07-31T13:18:46.776Z] [=] User 21104010 attempting to log in
+[2024-07-31T13:18:46.779Z] [=] User 21104010 successfully logged in
+[2024-07-31T13:18:46.787Z] [=] Mobile : Token provided for user 21104010
+[2024-07-31T13:33:57.446Z] [=] New student registered: 21104011
+[2024-07-31T13:34:10.243Z] [=] User 21104011 attempting to log in
+[2024-07-31T13:34:10.247Z] [=] User 21104011 successfully logged in
+[2024-07-31T13:34:10.252Z] [=] Mobile : Token provided for user 21104011
