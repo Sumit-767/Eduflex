@@ -21,7 +21,6 @@ class _MentorDashboardScreenState extends State<MentorDashboardScreen> {
     PostPermissionPage(),
     MentorGroupPage(),
     SettingsPage(),
-    GoodiesPage(),
     LogoutPage(),
   ];
 
@@ -80,12 +79,8 @@ class _MentorDashboardScreenState extends State<MentorDashboardScreen> {
               onTap: () => _onItemTapped(4),
             ),
             ListTile(
-              title: const Text('Goodies'),
-              onTap: () => _onItemTapped(5),
-            ),
-            ListTile(
               title: const Text('Logout'),
-              onTap: () => _onItemTapped(6),
+              onTap: () => _onItemTapped(5),
             ),
           ],
         ),
@@ -183,7 +178,7 @@ class _MentorGroupPageState extends State<MentorGroupPage> {
     });
 
     final response = await http.post(
-        Uri.parse('http://192.168.31.28:8000/mybatches'),
+        Uri.parse('https://nice-genuinely-pug.ngrok-free.app/mybatches'),
         headers: {
           'Content-Type' : 'application/json',
         },
@@ -233,7 +228,7 @@ class _MentorGroupPageState extends State<MentorGroupPage> {
 
     try {
       final request = await http.post(
-        Uri.parse('http://192.168.31.28:8000/delete-batch'),
+        Uri.parse('https://nice-genuinely-pug.ngrok-free.app/delete-batch'),
         headers: {
           'Content-Type': 'application/json',
         },
@@ -290,7 +285,7 @@ class _MentorGroupPageState extends State<MentorGroupPage> {
 
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse('http://192.168.31.28:8000/upload'), // Replace with your API URL
+      Uri.parse('https://nice-genuinely-pug.ngrok-free.app/upload'), // Replace with your API URL
     );
 
     request.fields['Token'] = token!;
@@ -462,7 +457,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final token = await _storage.read(key: 'auth_token');
 
     final response = await http.post(
-        Uri.parse('http://192.168.31.28:8000/changeprofile'),
+        Uri.parse('https://nice-genuinely-pug.ngrok-free.app/changeprofile'),
         headers: {
           'Content-Type' : 'application/json',
         },
@@ -556,7 +551,7 @@ class _logoutState extends State<LogoutPage> {
   Future<void> _logout() async {
     final token = await _storage.read(key: 'auth_token');
     final response = await http.post(
-        Uri.parse('http://192.168.31.28:8000/logout'),
+        Uri.parse('https://nice-genuinely-pug.ngrok-free.app/logout'),
         headers: {
           'Content-Type' : 'application/json',
         },

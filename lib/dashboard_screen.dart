@@ -136,7 +136,7 @@ class _ProfilePageState extends State<ProfilePage> {
     // Create request
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse('http://192.168.31.28:8000/upload'), // Replace with your API URL
+      Uri.parse('https://nice-genuinely-pug.ngrok-free.app/upload'), // Replace with your API URL
     );
 
     // Add fields to the request
@@ -272,7 +272,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final token = await _storage.read(key: 'auth_token');
 
     final response = await http.post(
-      Uri.parse('http://192.168.31.28:8000/changeprofile'),
+      Uri.parse('https://nice-genuinely-pug.ngrok-free.app/changeprofile'),
       headers: {
         'Content-Type' : 'application/json',
       },
@@ -366,7 +366,7 @@ class _logoutState extends State<LogoutPage> {
   Future<void> _logout() async {
     final token = await _storage.read(key: 'auth_token');
     final response = await http.post(
-        Uri.parse('http://192.168.31.28:8000/logout'),
+        Uri.parse('https://nice-genuinely-pug.ngrok-free.app/logout'),
         headers: {
           'Content-Type' : 'application/json',
         },

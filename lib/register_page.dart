@@ -21,7 +21,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _register() async {
     if (_formKey.currentState!.validate()) {
       final response = await http.post(
-        Uri.parse('http://192.168.31.28:8000/register'),
+        Uri.parse('https://nice-genuinely-pug.ngrok-free.app/register'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'firstname': _firstnameController.text,
