@@ -3,8 +3,11 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:mime/mime.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+
 
 class DashboardScreen extends StatefulWidget {
   @override
@@ -108,71 +111,136 @@ class ProfilePage extends StatefulWidget {
   _ProfilePageState createState() => _ProfilePageState();
 }
 
+
+
 class _ProfilePageState extends State<ProfilePage> {
-  final ImagePicker _picker = ImagePicker();
-  XFile? _selectedImage;
+  PlatformFile? _selectedFile;
   final TextEditingController _descriptionController = TextEditingController();
   final FlutterSecureStorage _storage = FlutterSecureStorage();
+  List<Map<String, dynamic>> _userPosts = []; // List to store user posts
 
-  Future<void> _pickImage() async {
-    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserPosts(); // Fetch posts when the page initializes
+  }
 
-    setState(() {
-      _selectedImage = image;
-    });
+  Future<void> _fetchUserPosts() async {
+    final token = await _storage.read(key: 'auth_token');
+    final username = await _storage.read(key: 'username');
+    final Uri url = Uri.parse('https://nice-genuinely-pug.ngrok-free.app/myprofile');
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'username': username,
+        'Token': token,
+        'interface': "Mobileapp",
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      setState(() {
+        _userPosts = List<Map<String, dynamic>>.from(data['data']);
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to fetch posts')));
+    }
+  }
+
+  Future<void> _pickFile() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+    );
+
+    if (result != null && result.files.isNotEmpty) {
+      setState(() {
+        _selectedFile = result.files.first;
+      });
+    }
   }
 
   Future<void> _uploadFile(BuildContext context) async {
     final token = await _storage.read(key: 'auth_token');
     final username = await _storage.read(key: 'username');
 
-    if (_selectedImage == null || _descriptionController.text.isEmpty) {
+    if (_selectedFile == null || _descriptionController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select an image and enter a description')),
+        SnackBar(content: Text('Please select a file and enter a description')),
       );
       return;
     }
 
-    // Create request
     var request = http.MultipartRequest(
       'POST',
       Uri.parse('https://nice-genuinely-pug.ngrok-free.app/upload'), // Replace with your API URL
     );
 
-    // Add fields to the request
     request.fields['Token'] = token!;
     request.fields['post_type'] = 'post';
     request.fields['post_desc'] = _descriptionController.text;
     request.fields['interface'] = 'Mobileapp';
     request.fields['up_username'] = username!;
-    request.fields['filename'] = _selectedImage!.name;
+    request.fields['filename'] = _selectedFile!.name;
 
-    // Add file to the request
     request.files.add(
       await http.MultipartFile.fromPath(
         'file',
-        _selectedImage!.path,
-        contentType: MediaType('image', 'jpeg'), // You can change the media type if needed
+        _selectedFile!.path!,
+        contentType: MediaType.parse(lookupMimeType(_selectedFile!.path!)!),
       ),
     );
+
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Uploading...')));
-    // Send request
+
     var response = await request.send();
-    // Handle response
+
     if (response.statusCode == 200) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload successful')));
+      _fetchUserPosts(); // Refresh the posts after upload
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed')));
     }
 
-    // Clear the selection
     setState(() {
-      _selectedImage = null;
+      _selectedFile = null;
       _descriptionController.clear();
     });
 
-    // Close the modal
     Navigator.pop(context);
+  }
+
+  Future<void> _deletePost(String postID) async {
+    final token = await _storage.read(key: 'auth_token');
+    final Uri url = Uri.parse('https://nice-genuinely-pug.ngrok-free.app/deletePost'); // Replace with your API URL
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({
+        'Token': token,
+        'postID': postID,
+        'interface': 'Mobileapp',
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Post deleted successfully')));
+      setState(() {
+        _fetchUserPosts(); // Refresh the posts after deletion
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete post')));
+    }
   }
 
   void _showUploadModal(BuildContext context) {
@@ -186,18 +254,20 @@ class _ProfilePageState extends State<ProfilePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               ListTile(
-                leading: Icon(Icons.photo),
-                title: Text('Select Image'),
-                onTap: _pickImage,
+                leading: Icon(Icons.attach_file),
+                title: Text('Select File'),
+                onTap: _pickFile,
               ),
-              if (_selectedImage != null)
+              if (_selectedFile != null)
                 Padding(
                   padding: const EdgeInsets.all(8.0),
                   child: SizedBox(
-                    height: 200, // Fixed height for image
-                    child: Image.file(
-                      File(_selectedImage!.path),
-                      fit: BoxFit.cover, // Adjust the fit as needed
+                    height: 200,
+                    child: _selectedFile!.extension == 'pdf'
+                        ? Icon(Icons.picture_as_pdf, size: 200) // Show PDF icon
+                        : Image.file(
+                      File(_selectedFile!.path!),
+                      fit: BoxFit.cover,
                     ),
                   ),
                 ),
@@ -209,14 +279,14 @@ class _ProfilePageState extends State<ProfilePage> {
                     labelText: 'Post Description',
                     border: OutlineInputBorder(),
                   ),
-                  maxLines: 3, // Allow multiline input for better user experience
+                  maxLines: 3,
                 ),
               ),
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: ElevatedButton(
                   onPressed: () {
-                    Navigator.pop(context); // Close the modal before uploading
+                    Navigator.pop(context);
                     _uploadFile(context);
                   },
                   child: Text('Upload'),
@@ -241,7 +311,88 @@ class _ProfilePageState extends State<ProfilePage> {
           },
         ),
       ),
-      body: Center(child: Text('Profile Page')),
+      body: _userPosts.isEmpty
+          ? Center(child: Text('No posts available'))
+          : ListView.builder(
+        itemCount: _userPosts.length,
+        itemBuilder: (context, index) {
+          final post = _userPosts[index];
+          final List<dynamic> images = post['images'] ?? [];
+          final List<dynamic> badges = post['credly_badges'] ?? []; // Assuming 'credly_badges' is the key
+
+          return Card(
+            margin: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (images.isNotEmpty) ...[
+                  CarouselSlider.builder(
+                    itemCount: images.length,
+                    itemBuilder: (context, itemIndex, realIndex) {
+                      return Image.network(
+                        'https://nice-genuinely-pug.ngrok-free.app' + images[itemIndex],
+                        fit: BoxFit.cover,
+                      );
+                    },
+                    options: CarouselOptions(
+                      height: 400.0,
+                      aspectRatio: 16 / 9,
+                      viewportFraction: 0.8,
+                      initialPage: 0,
+                      enableInfiniteScroll: true,
+                      reverse: false,
+                      autoPlay: true,
+                      autoPlayInterval: Duration(seconds: 5),
+                      autoPlayAnimationDuration: Duration(milliseconds: 800),
+                      enlargeCenterPage: true,
+                      scrollDirection: Axis.horizontal,
+                    ),
+                  ),
+                ],
+                Padding(
+                  padding: const EdgeInsets.all(8.0),
+                  child: Text(post['post_desc'] ?? 'No Description'),
+                ),
+                if (badges.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      'Credly Badges:',
+                      style: Theme.of(context).textTheme.headlineMedium,
+                    ),
+                  ),
+                  ...badges.map((badge) => Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Card(
+                      elevation: 5,
+                      child: ListTile(
+                        contentPadding: EdgeInsets.all(8.0),
+                        title: Text(
+                          badge['cert_name'] ?? 'No Certificate Name',
+                          style: Theme.of(context).textTheme.headlineMedium,
+                        ),
+                        subtitle: Text(
+                          '${badge['firstname'] ?? ''} ${badge['lastname'] ?? ''}\n'
+                              'Issued: ${badge['issued_date'] ?? 'No Issue Date'}',
+                          style: Theme.of(context).textTheme.headlineSmall,
+                        ),
+                        leading: Image.network(
+                          badge['badge_image'] ?? '',
+                          fit: BoxFit.cover,
+                        ),
+                      ),
+                    ),
+                  )),
+                ],
+                IconButton(
+                  icon: const Icon(Icons.delete, color: Colors.redAccent),
+                  onPressed: () => _deletePost(post['postID']),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           _showUploadModal(context);
@@ -252,7 +403,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
-
 
 class SettingsPage extends StatefulWidget {
   @override

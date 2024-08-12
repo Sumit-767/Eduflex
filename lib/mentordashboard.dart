@@ -393,7 +393,7 @@ class _MentorGroupPageState extends State<MentorGroupPage> {
                   itemCount: _batches.length,
               itemBuilder: (context, index) {
                 final batch = _batches[index];
-                final batchName = batch['batch'] ?? 'Unknown Batch'; // Ensure the correct key
+                final batchName = batch['batch'] ?? 'No Batches'; // Ensure the correct key
                 final students = batch['students'] ?? []; // Ensure 'students' is a list
 
                 return Card(

@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info/package_info.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
+
 
 // Page imports
 import 'login_screen.dart';
@@ -49,9 +48,10 @@ class _SplashScreenState extends State<SplashScreen> {
 
   Future<void> _checkForUpdates() async {
     try {
-      final currentVersion = (await _getAppVersion()).split('+').first; // Remove build number
-      final releaseUrl = 'https://api.github.com/repos/Soham01011/Eduflex/releases/latest';
+      final currentVersion = (await _getAppVersion()).split('+').first;
+      final releaseUrl = 'https://api.github.com/repos/Soham01011/Eduflex/releases/latest'; // Replace with the repository name
       final response = await http.get(Uri.parse(releaseUrl));
+      print("++++++++++++++++1");
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -67,7 +67,8 @@ class _SplashScreenState extends State<SplashScreen> {
           )?['browser_download_url'];
 
           if (apkUrl != null) {
-            _launchURL(apkUrl);
+            print('APK URL: $apkUrl');
+            await _launchExternalURL(apkUrl);
           } else {
             _showSnackbar("No APK found in the latest release");
             _navigateToHome();
@@ -77,6 +78,7 @@ class _SplashScreenState extends State<SplashScreen> {
           _navigateToHome();
         }
       } else {
+        print(jsonDecode(response.body));
         _showSnackbar("Unable to fetch update information");
         _navigateToHome();
       }
@@ -84,6 +86,18 @@ class _SplashScreenState extends State<SplashScreen> {
       print('Error checking for updates: $e');
       _showSnackbar("Error checking for updates");
       _navigateToHome();
+    }
+  }
+
+
+
+  Future<void> _launchExternalURL(String url) async {
+    final Uri apkUrl = Uri.parse(url);
+    if (!await launchUrl(
+      apkUrl,
+      mode: LaunchMode.externalApplication,
+    )) {
+      throw Exception('Could not launch $url');
     }
   }
 
