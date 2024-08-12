@@ -1,0 +1,17 @@
+[2024-08-06T12:02:09.755Z] [=] User 21104010 attempting to log in
+[2024-08-06T12:02:09.778Z] [-] Mobileapp 152.58.52.80 : Unsuccessful login attempt for user 21104010
+[2024-08-06T12:02:30.213Z] [=] User 21104010 attempting to log in
+[2024-08-06T12:02:30.218Z] [-] Mobileapp 152.58.52.80 : Unsuccessful login attempt for user 21104010
+[2024-08-06T12:02:48.405Z] [=] User 21104010 attempting to log in
+[2024-08-06T12:02:48.408Z] [-] Mobileapp 152.58.52.80 : Unsuccessful login attempt for user 21104010
+[2024-08-06T12:08:56.166Z] [=] User 21104010 attempting to log in
+[2024-08-06T12:08:56.171Z] [=] Mobileapp 152.58.52.80 : User 21104010 successfully logged in
+[2024-08-06T12:08:56.186Z] [=] Mobileapp 152.58.52.80 : Token provided for user 21104010
+[2024-08-06T12:11:08.361Z] [=] Mobileapp 152.58.52.80 : Token for user 21104010 is valid
+[2024-08-06T12:11:42.251Z] [=] User 2104087 attempting to log in
+[2024-08-06T12:11:42.255Z] [-] Mobileapp 152.58.52.80 : Unsuccessful login attempt for user 2104087
+[2024-08-06T12:11:47.242Z] [=] User 21104087 attempting to log in
+[2024-08-06T12:11:47.246Z] [=] Mobileapp 152.58.52.80 : User 21104087 successfully logged in
+[2024-08-06T12:11:47.252Z] [=] Mobileapp 152.58.52.80 : Token provided for user 21104087
+[2024-08-06T12:12:11.941Z] [=] Mobileapp 152.58.52.80 : Token for user 21104087 is valid
+[2024-08-06T12:37:00.643Z] [=] Mobileapp 152.58.52.80 : Token for user 21104010 is valid

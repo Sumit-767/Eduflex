@@ -27,3 +27,7 @@
 [2024-08-04T19:33:55.372Z] Mobileapp 152.58.42.189 : Mentor Sonal Jain fetch their badges info
 [2024-08-04T19:37:07.229Z] [=] 152.58.42.189 Mobileapp : New mentees added under mentor Sonal Jain 
 [2024-08-04T19:37:19.047Z] Mobileapp 152.58.42.189 : Mentor Sonal Jain fetch their badges info
+[2024-08-05T15:29:30.875Z] [=] User 21104010 attempting to log in
+[2024-08-05T15:29:30.910Z] [=] Mobileapp 152.58.52.47 : User 21104010 successfully logged in
+[2024-08-05T15:29:30.926Z] [=] Mobileapp 152.58.52.47 : Token provided for user 21104010
+[2024-08-05T15:29:48.539Z] [=] Mobileapp 152.58.52.47 : Token for user 21104010 is valid

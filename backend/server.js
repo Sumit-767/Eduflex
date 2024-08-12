@@ -14,6 +14,7 @@ const FormData = require('form-data');
 const multer = require("multer");
 require("dotenv").config();
 const cors = require("cors");
+const pdf = require('pdf-poppler');
 const CSRFToken = require("./models/csrfttoken");
 const User = require("./models/users");
 const Profiles = require("./models/profiles");
@@ -165,21 +166,24 @@ async function fetchAndSaveBadges(userUsername) {
         const badgeDataArray = response.data;
 
         // Fetch existing badges for this user from the database
-        const existingBadges = await Credly.find({ link: credlylink });
+        const existingBadges = await Credly.find({ username: userUsername });
 
         // Create a set of existing badge identifiers (e.g., certificate name and issue date)
-        const existingBadgeIdentifiers = new Set(existingBadges.map(badge => `${badge.cert_name}-${badge.issue_date}`));
+        const existingBadgeIdentifiers = new Set(
+            existingBadges.map(badge => `${badge.cert_name}-${badge.issue_date}`)
+        );
 
         // Prepare an array to hold new badges
         const newBadges = [];
 
         // Identify new badges
         for (const badge of badgeDataArray) {
-            const badgeIdentifier = `${badge.issuer_name}-${badge.certificate_name}-${badge.issued_date}`;
+            const badgeIdentifier = `${badge.certificate_name}-${badge.issued_date}`;
             if (!existingBadgeIdentifiers.has(badgeIdentifier)) {
                 newBadges.push({
                     firstname: firstname,
                     lastname: lastname,
+                    username: userUsername,
                     link: credlylink,
                     issuer_name: badge.issuer_name,
                     cert_name: badge.certificate_name,
@@ -201,10 +205,12 @@ async function fetchAndSaveBadges(userUsername) {
 }
 
 
+
 server.set("view engine", "hbs");
 server.set("views", __dirname + "/views");
 server.use("/scripts", express.static(__dirname + "/public/scripts"));
 const directoryPath = path.join(__dirname, "uploads");
+server.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 server.use(express.urlencoded({ extended: true }));
 server.use(express.json());
@@ -370,12 +376,13 @@ server.post("/register", async (req, res) => {
 
             const badgeDataArray = response.data;
 
-            // Insert each badge data into the database
+            // Insert each badge data into the database-+
             for (const badge of badgeDataArray) {
                 try {
                     const newBadge = new Credly({
                         firstname: firstname,
                         lastname: lastname,
+                        username : reguserUsername,
                         link: credlylink,
                         issuer_name: badge.issuer_name,
                         cert_name: badge.certificate_name,
@@ -493,86 +500,200 @@ server.post('/upload', upload.single('file'), async (req, res) => {
     try {
         const response = await axios.get('https://api.ipify.org?format=json');
         const userIP = response.data.ip;
+        console.log("uploading");
 
-        const { Token,up_username, post_type, post_desc,filename, interface ,selection } = req.body;
+        const { Token, up_username, post_type, post_desc, filename, interface, selection } = req.body;
 
-        const tokencheck = CSRFToken.findOne({token : Token});
-        let fullname
-        if (up_username == tokencheck.username)
-        {
-            username_data = User.findOne({ username : up_username })
-            fullname = username_data.fullname; 
+        const tokencheck = await CSRFToken.findOne({ token: Token });
+        if (!tokencheck || up_username !== tokencheck.username) {
+            return res.status(400).json({ message: "Invalid Token or Username" });
         }
 
-        if (post_type == "post")
-        {
-            const newpost = new Profiles({
-                fullname: String(fullname),
-                username: String(up_username),
-                postID: String(up_username +'-'+ uuidv4()), // Ensure the concatenation is a string
-                file: String(`uploads/${up_username}/${up_username}-${filename}`),
-                post_type: String(post_type),
-                post_desc: String(post_desc),
-                post_likes: Number(0), // Keep this as a number
-                interface: String(interface),
-            });
-            newpost.save();     
-            logMessage(`[=] ${interface} ${userIP} : Posted a file ${up_username}-${filename}`);
-            res.status(200).json({message : "Uploaded Successfully"});
+        const user_data = await User.findOne({ username: up_username });
+        if (!user_data) {
+            return res.status(404).json({ message: "User not found" });
         }
 
-        else if (post_type == "mentor_file_upload")
-        {
-            console.log( up_username + " addmin mentees");
-            addMentees(up_username , req.file.filename , post_desc, selection, userIP , interface);
-        }
+        const filePath = `uploads/${up_username}/${up_username}-${filename}`;
 
+        if (post_type === "post") {
+            // Convert PDF to images
+            const opts = {
+                format: 'jpeg',
+                out_dir: path.dirname(filePath),
+                out_prefix: path.basename(filePath, path.extname(filePath)),
+                page: null // Convert all pages
+            };
+
+            pdf.convert(filePath, opts)
+                .then(() => {
+                    console.log('Successfully converted all pages to images');
+
+                    // Rename the files with sequential numbers
+                    const renameFiles = (directory, baseName) => {
+                        fs.readdir(directory, (err, files) => {
+                            if (err) {
+                                console.error('Error reading directory:', err);
+                                return;
+                            }
+
+                            const imageFiles = files.filter(file => file.startsWith(baseName) && file.endsWith('.jpeg'));
+                            imageFiles.sort();
+
+                            imageFiles.forEach((file, index) => {
+                                const oldPath = path.join(directory, file);
+                                const newPath = path.join(directory, `${baseName}-${index + 1}.jpeg`);
+                                fs.rename(oldPath, newPath, err => {
+                                    if (err) {
+                                        console.error('Error renaming file:', err);
+                                    } else {
+                                        console.log(`Renamed ${file} to ${baseName}-${index + 1}.jpeg`);
+                                    }
+                                });
+                            });
+                        });
+                    };
+
+                    renameFiles(opts.out_dir, opts.out_prefix);
+
+                    // Collect paths of image files
+                    const uploadDir = path.join(__dirname, `uploads/${up_username}/`);
+
+                    const imagePaths = fs.readdirSync(uploadDir)
+                        .filter(file => file.startsWith(opts.out_prefix) && file.endsWith('.jpg'))
+                        .map(file => path.join(`uploads/${up_username}/`, file));
+
+
+                    // Save original PDF path and image paths to database
+                    const newpost = new Profiles({
+                        firstname: user_data.firstname,
+                        lastname: user_data.lastname,
+                        username: up_username,
+                        postID: `${up_username}-${uuidv4()}`,
+                        file: filePath, // Store the PDF file path
+                        imagePaths: imagePaths, // Store the array of image paths
+                        post_type: post_type,
+                        post_desc: post_desc,
+                        post_likes: 0,
+                        approved : false,
+                        interface: interface
+                    });
+
+                    newpost.save();
+                    logMessage(`[=] ${interface} ${userIP} : Posted a file ${up_username}-${filename}`);
+                    res.status(200).json({ message: "Uploaded Successfully" });
+                })
+                .catch(error => {
+                    console.error('Error converting PDF to images:', error);
+                    res.status(500).json({ message: "Error converting PDF to images" });
+                });
+
+        } else if (post_type === "mentor_file_upload") {
+            console.log(up_username + " admin mentees");
+            addMentees(up_username, req.file.filename, post_desc, selection, userIP, interface);
+        }
 
     } catch (error) {
-        const response = await axios.get('https://api.ipify.org?format=json');
-        const userIP = response.data.ip;
-        const { filename, up_username ,interface} = req.body;
-        const og_filepath = `uploads/${up_username}/${up_username}-${filename}`
-
-        // Construct the file path
-        const filePath = path.join(__dirname, og_filepath);
-    
-        // Attempt to delete the file
-        fs.unlink(filePath, (err) => {
-            if (err) {
-                logMessage(`[*] ${interface} ${userIP} : Failed to delete file: ${err}`);
-            } else {
-                logMessage(`[*] ${interface} ${userIP} : File deleted successfully: ${filePath}`);
-            }
-        });
-    
         console.error(`[*] Internal server error: ${error}`);
         res.status(500).json({ message: "Internal server error" });
     }
 });
 
-server.get("/myprofile", async(req,res)=> {
+server.post("/myprofile", async (req, res) => {
     const response = await axios.get('https://api.ipify.org?format=json');
     const userIP = response.data.ip;
-    
-    const {Token, interface} = req.body;
+    console.log("User posts ");
+
+    const { Token, interface } = req.body;
     console.log(Token, interface);
-    const tokencheck = CSRFToken.findOne({token : Token});
-    console.log(tokencheck)
-    if(tokencheck)
-    {
+    const tokencheck = await CSRFToken.findOne({ token: Token });
+    console.log(tokencheck);
+
+    if (tokencheck) {
         try {
             console.log(tokencheck.username);
-            user_profile_data = await Profiles.find({ username : tokencheck.username});
+
+            // Fetch user profile posts
+            const user_profile_data = await Profiles.find({ username: tokencheck.username });
+            const user_credly_data = await Credly.find({ username: tokencheck.username });
+
+            // Include the file paths for images
+            const profilePosts = user_profile_data.map(post => {
+                if (post.file) {
+                    const images = fs.readdirSync(path.dirname(post.file))
+                        .filter(file => file.startsWith(path.basename(post.file, path.extname(post.file))) && file.endsWith('.jpg'))
+                        .map(file => `/uploads/${post.username}/${file}`);
+                    return {
+                        ...post._doc,
+                        images,
+                        post_desc: post.post_desc
+                    };
+                }
+                return post;
+            });
+
             logMessage(`[=] ${interface} ${userIP} : ${tokencheck.username} pulled their own profile`);
-            res.status(200).json({ data : user_profile_data});
+            console.log("Data : ", profilePosts ,"\nCredly : ", user_credly_data);
+            res.status(200).json({ data: profilePosts, credly: user_credly_data });
         } catch (error) {
             logMessage(`[*] ${interface} ${userIP} : Internal server error ${error}`);
-            res.status(500).json({message : "Internal server error"});
+            res.status(500).json({ message: "Internal server error" });
+        }
+    } else {
+        res.status(400).json({ message: "Invalid Token" });
+    }
+});
+
+
+server.post('/deletePost', async (req, res) => {
+    const response = await axios.get('https://api.ipify.org?format=json');
+    const userIP = response.data.ip;
+    const { Token, postID, interface } = req.body;
+  
+    const token_check = await CSRFToken.findOne({token : Token});
+    const username = token_check.username;
+
+    const profilesdata = await Profiles.findOne({ username : username , postID : postID});
+
+    if(profilesdata)
+    {
+        try {
+            await Profiles.deleteOne({ postID: postID });
+            logMessage(`[=] ${interface} ${userIP} : Deleted post ${postID}`);
+
+            // Step 2: Delete the associated files
+            const uploadsDir = path.join(__dirname, `uploads/${username}/`); // Adjust the path as needed
+
+            // Function to delete a file
+            const deleteFile = (filePath) => {
+              fs.unlink(filePath, (err) => {
+                if (err) {
+                  logMessage(`[*] ${interface} ${userIP} : Error deleting file ${filePath} - ${err}`);
+                } else {
+                  logMessage(`[=] ${interface} ${userIP} : Deleted file ${filePath}`);
+                }
+              });
+            };
+        
+            // Delete the PDF file and images
+            const files = fs.readdirSync(uploadsDir);
+            files.forEach((file) => {
+              if (file.includes(postID)) {
+                const filePath = path.join(uploadsDir, file);
+                deleteFile(filePath);
+              }
+            });
+          res.status(200);
+        } catch (error) {
+          logMessage('[*] Error deleting post:', error);
+          res.status(500).json({ message: 'Error deleting post' });
         }
     }
+    else{
+        logMessage(`[-] ${interface} ${userIP} : Treid to delete no existing post ${postID}`);
+    }
+  });
 
-});
 
 server.post("/mybatches", async(req,res) =>{
     const response = await axios.get('https://api.ipify.org?format=json');

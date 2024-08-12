@@ -1,0 +1,15 @@
+[2024-08-11T17:40:21.387Z] [=] User 21104010 attempting to log in
+[2024-08-11T17:40:21.437Z] [=] Mobileapp 152.58.43.254 : User 21104010 successfully logged in
+[2024-08-11T17:40:21.453Z] [=] Mobileapp 152.58.43.254 : Token provided for user 21104010
+[2024-08-11T17:42:50.943Z] [=] User Sonal Jain attempting to log in
+[2024-08-11T17:42:50.957Z] [=] Mobileapp 152.58.42.255 : User Sonal Jain successfully logged in
+[2024-08-11T17:42:50.962Z] [=] Mobileapp 152.58.42.255 : Token provided for user Sonal Jain
+[2024-08-11T17:42:57.178Z] Mobileapp 152.58.42.255 : Mentor Sonal Jain fetch their badges info
+[2024-08-11T17:43:01.776Z] Mobileapp 152.58.42.255 : Mentor Sonal Jain fetch their badges info
+[2024-08-11T17:44:30.543Z] [=] User 21104010 attempting to log in
+[2024-08-11T17:44:30.556Z] [=] Mobileapp 152.58.42.255 : User 21104010 successfully logged in
+[2024-08-11T17:44:30.561Z] [=] Mobileapp 152.58.42.255 : Token provided for user 21104010
+[2024-08-11T17:46:13.972Z] [=] Mobileapp 152.58.42.255 : Posted a file 21104010-ITSA Constitution -24-25.pdf
+[2024-08-11T18:04:12.485Z] [*] Mobileapp 152.58.42.255 : File deleted successfully: C:\Eduflex\backend\uploads\21104010\21104010-ITSA Constitution -24-25.pdf
+[2024-08-11T18:20:17.211Z] [*] Mobileapp 152.58.42.255 : File deleted successfully: C:\Eduflex\backend\uploads\21104010\21104010-ITSA Constitution -24-25.pdf
+[2024-08-11T18:28:27.843Z] [=] Mobileapp 152.58.42.255 : Posted a file 21104010-ITSA Constitution -24-25.pdf
