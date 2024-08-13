@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:carousel_slider/carousel_slider.dart';
+
 
 class MentorDashboardScreen extends StatefulWidget {
   @override
@@ -132,11 +134,152 @@ class PostPermissionPage extends StatefulWidget{
 }
 
 class _PostPermissionPageState extends State<PostPermissionPage> {
+  final _storage = const FlutterSecureStorage();
+  String batchName = '';
+  String studentName = '';
+  Map<String, Map<String, List<Map<String, dynamic>>>> _posts = {};
+  bool _isLoading = true;
+  String _errorMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+      _fetchPosts();
+  }
+
+  Future<void> _fetchPosts() async {
+    final token = await _storage.read(key: 'auth_token');
+    final username = await _storage.read(key: 'username');
+    final response = await http.post(
+      Uri.parse('https://nice-genuinely-pug.ngrok-free.app/postpermission'),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'Token': token,
+        'up_username': username,
+        'interface': 'Mobileapp',
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body) as Map<String, dynamic>;
+      print("DATA ++++++++++++++++++++++++++++++++++++++++++\n$data");
+
+      final postsData = data.map((batchName, studentsMap) {
+        final students = studentsMap as Map<String, dynamic>;
+        final transformedStudents = students.map((studentName, postList) {
+          final posts = (postList as List<dynamic>).map((post) {
+            // Check if imagePaths is not null and is a list
+            final imagePaths = post['imagePaths'] != null && post['imagePaths'] is List<dynamic>
+                ? List<String>.from(post['imagePaths'])
+                : <String>[];
+
+            return {
+              'postID': post['postId'],
+              'imagePaths': imagePaths,
+              'post_desc': post['post_desc']
+            };
+          }).toList(); // This `toList()` is correct as we're mapping over a list
+          return MapEntry(studentName, posts);
+        });
+        return MapEntry(batchName, transformedStudents);
+      });
+
+      setState(() {
+        _posts = postsData as Map<String, Map<String, List<Map<String, dynamic>>>>;
+        _isLoading = false;
+        if (_posts.isNotEmpty) {
+          final firstBatch = _posts.keys.first;
+          final firstStudent = _posts[firstBatch]?.keys.first ?? '';
+          batchName = firstBatch;
+          studentName = firstStudent;
+        }
+      });
+
+
+
+      setState(() {
+        _posts = postsData as Map<String, Map<String, List<Map<String, dynamic>>>>;
+        _isLoading = false;
+        if (_posts.isNotEmpty) {
+          final firstBatch = _posts.keys.first;
+          final firstStudent = _posts[firstBatch]?.keys.first ?? '';
+          batchName = firstBatch;
+          studentName = firstStudent;
+        }
+      });
+    } else {
+      setState(() {
+        _errorMessage = 'Failed to load posts';
+        _isLoading = false;
+      });
+    }
+  }
+
+
+  Future<void> _approvePost(String postId) async {
+    final token = await _storage.read(key: 'auth_token');
+    final username = await _storage.read(key: 'username');
+    final url = 'https://nice-genuinely-pug.ngrok-free.app/status-post'; // Replace with your API URL
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'postId': postId,
+        'status': 'approved',
+        'up_username': username,
+        'Token': token,
+        'interface': 'Mobileapp',
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      setState(() {
+        _fetchPosts(); // Refresh posts after approval
+      });
+
+    } else {
+      // Handle error
+    }
+  }
+
+  Future<void> _rejectPost(String postId) async {
+    final token = await _storage.read(key: 'auth_token');
+    final username = await _storage.read(key: 'username');
+    final url = 'https://nice-genuinely-pug.ngrok-free.app/status-post'; // Replace with your API URL
+    final response = await http.post(
+      Uri.parse(url),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: json.encode({
+        'postId': postId,
+        'up_username': username,
+        'Token': token,
+        'status' : "rejected",
+        'interface': 'Mobileapp',
+      }),
+    );
+
+    final responseBody = json.decode(response.body);
+
+    if (response.statusCode == 200) {
+      setState(() {
+        _fetchPosts(); // Refresh posts after rejection
+      });
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(responseBody['message'])));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Students posts'),
+        title: const Text('Students Posts'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
@@ -144,7 +287,90 @@ class _PostPermissionPageState extends State<PostPermissionPage> {
           },
         ),
       ),
-      body: const Center(child: Text('Allow posts')),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : _errorMessage.isNotEmpty
+          ? Center(child: Text(_errorMessage))
+          : Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              'Batch: $batchName',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              'Student: $studentName',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: _posts.isEmpty ? 0 : _posts[batchName]?[studentName]?.length ?? 0,
+              itemBuilder: (context, index) {
+                final post = _posts[batchName]?[studentName]?[index] ?? {};
+                final imageUrls = post['imagePaths'] as List<dynamic>;
+
+                return Card(
+                  margin: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(
+                          'Post ID: ${post['postID']}',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(post['post_desc'] ?? ''),
+                      ),
+                      CarouselSlider(
+                        options: CarouselOptions(
+                          height: 200,
+                          autoPlay: false,
+                          enableInfiniteScroll: false,
+                        ),
+                        items: imageUrls.map((url) {
+                          final fullUrl = 'https://nice-genuinely-pug.ngrok-free.app/$url';
+                          return Builder(
+                            builder: (BuildContext context) {
+                              return Padding(
+                                padding: const EdgeInsets.all(8.0),
+                                child: Image.network(fullUrl),
+                              );
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      ButtonBar(
+                        children: [
+                          TextButton(
+                            style: TextButton.styleFrom(foregroundColor: Colors.blueAccent ,backgroundColor: Colors.white70),
+                            onPressed: () => _approvePost(post['postID']),
+                            child: const Text('Approve'),
+                          ),
+                          TextButton(
+                            style: TextButton.styleFrom(foregroundColor: Colors.redAccent ,backgroundColor: Colors.white70),
+                            onPressed: () => _rejectPost(post['postID']),
+                            child: const Text('Reject'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
