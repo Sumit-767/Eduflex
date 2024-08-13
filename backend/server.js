@@ -21,7 +21,7 @@ const Profiles = require("./models/profiles");
 const Credly = require("./models/credly");
 const Mentor = require("./models/mentees");
 
-
+const BASE_URL = 'https://nice-genuinely-pug.ngrok-free.app/';
 const serverSK = process.env.SERVER_SEC_KEY;
 
 const server = express();
@@ -94,6 +94,7 @@ async function addMentees(userUsername, filename, batchname, selection,interface
         console.log('Extracted Data:', data);
 
         const mentorStudents = [];
+        const mentorStudentsMoodle = [];
 
         for (const name of data) {
             const parts = name.split(' ');
@@ -111,6 +112,7 @@ async function addMentees(userUsername, filename, batchname, selection,interface
 
                 if (userExists) {
                     mentorStudents.push(name);
+                    mentorStudentsMoodle.push(userExists.username);
                 }
             }
         }
@@ -130,6 +132,7 @@ async function addMentees(userUsername, filename, batchname, selection,interface
                 const newMentees = new Mentor({
                     mentor: userUsername,
                     students: mentorStudents,
+                    username : mentorStudentsMoodle,
                     batch: batchname,
                 });
                 await newMentees.save();
@@ -234,12 +237,28 @@ const upload  = multer({ storage : storage});
 
 
 server.get("/ping", (req, res) => {
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
+
+
     res.status(200).json({ message: "Server is up and running" });
 });
 
 server.post("/mobiletoken", async(req,res) => {
-    const response = await axios.get('https://api.ipify.org?format=json');
-    const userIP = response.data.ip;
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
     
     const { mobiletoken } = req.body;
     console.log(mobiletoken);
@@ -278,8 +297,14 @@ server.post("/mobiletoken", async(req,res) => {
 
 
 server.post("/login", async (req, res) => {
-    const response = await axios.get('https://api.ipify.org?format=json');
-    const userIP = response.data.ip;
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
     const { userUsername, userPwd , interface} = req.body;
     console.log( " API " , interface);
     logMessage(`[=] User ${userUsername} attempting to log in`);
@@ -347,8 +372,12 @@ server.post("/logout", async(req,res)=>{
 });
 
 server.post("/register", async (req, res) => {
-    const response = await axios.get('https://api.ipify.org?format=json');
-    const userIP = response.data.ip;
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
     const credlylink_template = "https://www.credly.com/users/"
     
     const { firstname , lastname, email , ph_no , reguserUsername, reguserPwd, confuserPwd,credlylink, interface } = req.body;
@@ -428,8 +457,13 @@ server.post("/register", async (req, res) => {
 });
 
 server.post("/changeprofile", async (req, res) => {
-    const response = await axios.get('https://api.ipify.org?format=json');
-    const userIP = response.data.ip;
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
     
     const { Token, changeemail, changepwd, changephoneno, interface } = req.body;
     console.log("Token:", Token, "Email:", changeemail, "Password:", changepwd, "PhoneNo:", changephoneno);
@@ -600,8 +634,14 @@ server.post('/upload', upload.single('file'), async (req, res) => {
 });
 
 server.post("/myprofile", async (req, res) => {
-    const response = await axios.get('https://api.ipify.org?format=json');
-    const userIP = response.data.ip;
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
     console.log("User posts ");
 
     const { Token, interface } = req.body;
@@ -646,8 +686,14 @@ server.post("/myprofile", async (req, res) => {
 
 
 server.post('/deletePost', async (req, res) => {
-    const response = await axios.get('https://api.ipify.org?format=json');
-    const userIP = response.data.ip;
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
     const { Token, postID, interface } = req.body;
   
     const token_check = await CSRFToken.findOne({token : Token});
@@ -696,8 +742,14 @@ server.post('/deletePost', async (req, res) => {
 
 
 server.post("/mybatches", async(req,res) =>{
-    const response = await axios.get('https://api.ipify.org?format=json');
-    const userIP = response.data.ip;
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
     console.log("recived batches request")
     const {Token , username , interface} = req.body;
     if(Token)
@@ -731,8 +783,14 @@ server.post("/mybatches", async(req,res) =>{
 });
 
 server.post('/delete-batch', async (req, res) => {
-    const response = await axios.get('https://api.ipify.org?format=json');
-    const userIP = response.data.ip;
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
 
     const { username, batchName,Token } = req.body; // Extract username and batchName from request body
     console.log(username , batchName, Token)
@@ -762,6 +820,125 @@ server.post('/delete-batch', async (req, res) => {
         }
     }
 });
+
+
+server.post("/postpermission", async (req, res) => {
+    const userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
+
+    console.log("POST PERMISSION");
+
+    const { Token, up_username ,interface} = req.body;
+
+    const check_token = await CSRFToken.findOne({ token: Token });
+    console.log("Token:", Token, "username:", check_token?.username);
+
+    if (check_token.username) {
+        const mybatches_data = await Mentor.find({ mentor: check_token.username });
+        console.log("Token true\n", mybatches_data);
+
+        let results = {};
+
+        for (const batchData of mybatches_data) {
+            const batchName = batchData.batch;
+            const studentsNames = batchData.students;
+            const studentsUsernames = batchData.username;
+
+            results[batchName] = {};
+
+            for (let i = 0; i < studentsNames.length; i++) {
+                const studentName = studentsNames[i];
+                const studentUsername = studentsUsernames[i];
+
+                // Fetch unapproved posts for the student
+                const unapprovedPosts = await Profiles.find({
+                    username: studentUsername,
+                    approved: false
+                });
+
+                // Map unapproved posts to include all required fields
+                results[batchName][studentName] = unapprovedPosts.map(post => ({
+                    postId: post.postID,
+                    imagePaths: post.imagePaths, // Ensure this field is included
+                    post_desc: post.post_desc,
+                    post_type: post.post_type,
+                    post_likes: post.post_likes,
+                    file: post.file,
+                    interface: post.interface,
+                    approved: post.approved
+                }));
+            }
+        }
+        logMessage(`[=] ${interface} ${userIP} : ${check_token.username} fetched post permissions`);
+
+        res.status(200).json(results);
+
+    } else {
+        logMessage(`[-] ${interface} ${userIP} : ${check_token.username} couldn't fetched post permissions`);
+        res.status(404).send("Token not valid");
+    }
+});
+
+server.post("/status-post",async(req,res)=> {
+    const userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
+
+    const {Token , postId , up_username , status , interface } = req.body;
+    if (Token)
+    {    
+        const check_token = await CSRFToken.findOne({ token : Token});
+        if (check_token.username == up_username)
+        {
+            if(status == "approved")
+            {
+                try {
+
+                    const result = await Profiles.findOneAndUpdate(
+                      { postID: postId }, 
+                      { $set: { approved: true } }, 
+                      { new: true } 
+                    );
+                
+                    if (!result) {
+                      return res.status(404).json({ message: 'Post not found' });
+                    }
+                    logMessage(`[=] ${interface} ${userIP} : ${up_username} approved post ${postId}`)
+                    return res.status(200).json({ message: 'Post approved successfully'});
+                  } catch (error) {
+                    logMessage(`[*] Internal Server error : failed to approved post :${error}`)
+                    return res.status(500).json({ message: 'Internal Server error' });
+                  }
+            }
+            else if (status == 'rejected')
+            {
+                try {
+                    console.log("REJECTED : ",postId);
+                    await Profiles.deleteOne({postID : postId});
+                    logMessage(`[=] ${interface} ${userIP} : ${up_username} rejected post ${postId}`);
+                    return res.status(200).json({ message: 'Post rejected successfully'});
+                } catch (error) {
+                    logMessage(`[*] Internal Server error : rejected post ${postId} ,error ${error}`);
+                    return res.status(200).json({ message: 'Internal Server error'});
+                }
+            }
+        }
+        else{
+            logMessage(`[-] ${interface} ${userIP} : Invalid request : ${up_username} ${postId}`);
+            return res.status(404).json({ message: 'invalid request' });
+        }
+}
+});
+
 
 
 server.listen(8000, () => {
