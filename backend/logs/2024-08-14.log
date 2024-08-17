@@ -23,3 +23,8 @@
 [2024-08-13T18:36:46.298Z] [=] Mobileapp 152.58.2.207 : Token provided for user 21104010
 [2024-08-13T18:36:49.105Z] [=] Mobileapp 152.58.2.207 : 21104010 pulled their own profile
 [2024-08-13T18:36:49.111Z] [=] Mobileapp 152.58.2.207 : 21104010 pulled their own profile
+[2024-08-13T18:39:40.589Z] [=] User 21104010 attempting to log in
+[2024-08-13T18:39:40.593Z] [=] Mobileapp 2402:3a80:4196:3e02:0:45:56f8:6a01 : User 21104010 successfully logged in
+[2024-08-13T18:39:40.597Z] [=] Mobileapp 2402:3a80:4196:3e02:0:45:56f8:6a01 : Token provided for user 21104010
+[2024-08-13T18:39:44.222Z] [=] Mobileapp 42.111.114.20 : 21104010 pulled their own profile
+[2024-08-13T18:39:44.227Z] [=] Mobileapp 42.111.114.20 : 21104010 pulled their own profile

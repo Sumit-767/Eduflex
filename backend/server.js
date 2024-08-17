@@ -198,7 +198,7 @@ async function fetchAndSaveBadges(userUsername) {
         // Insert only new badges into the database
         if (newBadges.length > 0) {
             await Credly.insertMany(newBadges);
-            console.log(`Inserted ${newBadges.length} new badges.`);
+            
         } else {
             console.log('No new badges to insert.');
         }
@@ -207,7 +207,42 @@ async function fetchAndSaveBadges(userUsername) {
     }
 }
 
+const check_token = async(req,res,next) =>
+{
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
 
+    const {Token, interface} = req.body;
+    const tokencheck = await CSRFToken.findOne({ token: Token });
+    console.log("Token check : " , interface , Token);
+    if (interface == "Mobileapp")
+    {
+        if (tokencheck || tokencheck.token == Token) {
+            const tokenAge = (Date.now() - tokencheck.createdAt) / (1000*60*60*24);
+            if(tokenAge > 30)
+            {
+                console.log("token expired");
+                logMessage(`[=] Mobileapp ${userIP} : Token for user ${tokencheck.username} has expired`);
+                await CSRFToken.deleteOne({ token : tokencheck.token});
+                return res.status(400).json({message : "expired"}); 
+            }
+        }
+        else if(!tokencheck){
+            console.log("token not found");
+            return res.status(400).json({message : "No token found"});
+        }
+        next();
+
+    }
+    else if (interface == "Webapp")
+    {
+
+    }
+};
 
 server.set("view engine", "hbs");
 server.set("views", __dirname + "/views");
@@ -235,18 +270,23 @@ const storage = multer.diskStorage({
 
 const upload  = multer({ storage : storage});
 
+const hashtag_storage = multer.diskStorage({
+    destination: (req,file,callback) =>
+    {
+        const hashtag_file = `hashtag_extractions/${req.body.up_username}`;
+        fs.mkdirSync(hashtag_file, {recursive: true});
+        callback(null,hashtag_file);
+    },
+    filename: (req,file,callback) => 
+    {
+        callback(null,req.body.up_username+"-"+file.originalname);
+    }
+});
+
+const extract_hashtag_folder = multer({storage : hashtag_storage});
+
 
 server.get("/ping", (req, res) => {
-    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
-
-
-    if (Array.isArray(userIP)) {
-        userIP = userIP[0];
-    } else if (userIP.includes(',')) {
-        userIP = userIP.split(',')[0].trim();
-    }
-
-
     res.status(200).json({ message: "Server is up and running" });
 });
 
@@ -265,9 +305,7 @@ server.post("/mobiletoken", async(req,res) => {
     try
     {
         const mobile_token_check = await CSRFToken.findOne({ token : mobiletoken});
-        console.log("mobile token db: ", mobile_token_check);
-        const user = await User.findOne({username : mobile_token_check.username})
-        console.log('user found ');
+        const user = await User.findOne({username : mobile_token_check.username});
         const tokenAge = (Date.now() - mobile_token_check.createdAt) / (1000*60*60*24);
         if(tokenAge > 30)
         {
@@ -456,7 +494,7 @@ server.post("/register", async (req, res) => {
     }
 });
 
-server.post("/changeprofile", async (req, res) => {
+server.post("/changeprofile", check_token ,async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (Array.isArray(userIP)) {
@@ -530,12 +568,10 @@ server.post("/changeprofile", async (req, res) => {
 });
 
 
-server.post('/upload', upload.single('file'), async (req, res) => {
+server.post('/upload',check_token, upload.single('file'), async (req, res) => {
     try {
         const response = await axios.get('https://api.ipify.org?format=json');
         const userIP = response.data.ip;
-        console.log("uploading");
-
         const { Token, up_username, post_type, post_desc, filename, interface, selection } = req.body;
 
         const tokencheck = await CSRFToken.findOne({ token: Token });
@@ -561,8 +597,6 @@ server.post('/upload', upload.single('file'), async (req, res) => {
 
             pdf.convert(filePath, opts)
                 .then(() => {
-                    console.log('Successfully converted all pages to images');
-
                     // Rename the files with sequential numbers
                     const renameFiles = (directory, baseName) => {
                         fs.readdir(directory, (err, files) => {
@@ -581,7 +615,7 @@ server.post('/upload', upload.single('file'), async (req, res) => {
                                     if (err) {
                                         console.error('Error renaming file:', err);
                                     } else {
-                                        console.log(`Renamed ${file} to ${baseName}-${index + 1}.jpeg`);
+                                       
                                     }
                                 });
                             });
@@ -615,15 +649,15 @@ server.post('/upload', upload.single('file'), async (req, res) => {
 
                     newpost.save();
                     logMessage(`[=] ${interface} ${userIP} : Posted a file ${up_username}-${filename}`);
-                    res.status(200).json({ message: "Uploaded Successfully" });
+                    return res.status(200).json({ message: "Uploaded Successfully" });
                 })
                 .catch(error => {
                     console.error('Error converting PDF to images:', error);
-                    res.status(500).json({ message: "Error converting PDF to images" });
+                    return res.status(500).json({ message: "Error converting PDF to images" });
                 });
 
         } else if (post_type === "mentor_file_upload") {
-            console.log(up_username + " admin mentees");
+           
             addMentees(up_username, req.file.filename, post_desc, selection, userIP, interface);
         }
 
@@ -633,7 +667,7 @@ server.post('/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-server.post("/myprofile", async (req, res) => {
+server.post("/myprofile", check_token,async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
 
@@ -642,18 +676,12 @@ server.post("/myprofile", async (req, res) => {
     } else if (userIP.includes(',')) {
         userIP = userIP.split(',')[0].trim();
     }
-    console.log("User posts ");
 
     const { Token, interface } = req.body;
-    console.log(Token, interface);
     const tokencheck = await CSRFToken.findOne({ token: Token });
-    console.log(tokencheck);
 
     if (tokencheck) {
         try {
-            console.log(tokencheck.username);
-
-            // Fetch user profile posts
             const user_profile_data = await Profiles.find({ username: tokencheck.username });
             const user_credly_data = await Credly.find({ username: tokencheck.username });
 
@@ -673,7 +701,6 @@ server.post("/myprofile", async (req, res) => {
             });
 
             logMessage(`[=] ${interface} ${userIP} : ${tokencheck.username} pulled their own profile`);
-            console.log("Data : ", profilePosts ,"\nCredly : ", user_credly_data);
             res.status(200).json({ data: profilePosts, credly: user_credly_data });
         } catch (error) {
             logMessage(`[*] ${interface} ${userIP} : Internal server error ${error}`);
@@ -685,7 +712,7 @@ server.post("/myprofile", async (req, res) => {
 });
 
 
-server.post('/deletePost', async (req, res) => {
+server.post('/deletePost', check_token,async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
 
@@ -741,7 +768,7 @@ server.post('/deletePost', async (req, res) => {
   });
 
 
-server.post("/mybatches", async(req,res) =>{
+server.post("/mybatches", check_token ,async(req,res) =>{
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
 
@@ -750,13 +777,11 @@ server.post("/mybatches", async(req,res) =>{
     } else if (userIP.includes(',')) {
         userIP = userIP.split(',')[0].trim();
     }
-    console.log("recived batches request")
     const {Token , username , interface} = req.body;
     if(Token)
     {
         try
         {
-            console.log("fetching data from db")
             tocken_check = await CSRFToken.findOne({ token : Token});
             if (tocken_check.username == username )
             {
@@ -782,7 +807,7 @@ server.post("/mybatches", async(req,res) =>{
 
 });
 
-server.post('/delete-batch', async (req, res) => {
+server.post('/delete-batch', check_token,async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
 
@@ -793,7 +818,6 @@ server.post('/delete-batch', async (req, res) => {
     }
 
     const { username, batchName,Token } = req.body; // Extract username and batchName from request body
-    console.log(username , batchName, Token)
     if (Token) 
     {    
 
@@ -801,28 +825,40 @@ server.post('/delete-batch', async (req, res) => {
             tocken_check = await CSRFToken.findOne({ token : Token})
             if (tocken_check.username == username )
             {// Find and delete the batch for the given username and batch name
-                console.log("valid mentor")
                 const result = await Mentor.findOneAndDelete({
                     mentor: username,
                     batch: batchName
                 });
 
                 if (result) {
-                    console.log("deleted batch")
+                    logMessage(`[=] ${userIP} : ${username} deleted thier batch`);
                     res.status(200).json({ message: 'Batch deleted successfully' });
                 } else {
                     res.status(404).json({ message: 'Batch not found' });
                 }
             }
         } catch (error) {
-            console.error(`[*] ${userIP} : Internal server error ${error}`);
+            logMessage(`[*] ${userIP} : Internal server error while delteing batch :${error}`);
             res.status(500).json({ message: 'Internal server error' });
         }
     }
 });
 
 
-server.post("/postpermission", async (req, res) => {
+server.post("/extract-hashtags", extract_hashtag_folder.single('file') ,async(req,res)=> {
+    const userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
+
+    const {Token , interface , filename , up_username} = req.body;
+    console.log("Token :" , Token , " interface : ",interface , " Filename : ", filename , "username :", up_username);
+});
+
+server.post("/postpermission", check_token ,async (req, res) => {
     const userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (Array.isArray(userIP)) {
@@ -884,7 +920,7 @@ server.post("/postpermission", async (req, res) => {
     }
 });
 
-server.post("/status-post",async(req,res)=> {
+server.post("/status-post",check_token,async(req,res)=> {
     const userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (Array.isArray(userIP)) {
