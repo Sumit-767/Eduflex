@@ -117,7 +117,9 @@ class _ProfilePageState extends State<ProfilePage> {
   PlatformFile? _selectedFile;
   final TextEditingController _descriptionController = TextEditingController();
   final FlutterSecureStorage _storage = FlutterSecureStorage();
-  List<Map<String, dynamic>> _userPosts = []; // List to store user posts
+  List<Map<String, dynamic>> _userPosts = [];
+  List<String> _hashtags = [];
+  List<String> _selectedHashtags = [];
 
   @override
   void initState() {
@@ -154,17 +156,77 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _pickFile() async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['pdf'],
-    );
+    final result = await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']);
 
-    if (result != null && result.files.isNotEmpty) {
+    if (result != null) {
       setState(() {
         _selectedFile = result.files.first;
       });
+
+      // Send file to backend for text extraction and hashtags
+      await _extractHashtagsFromPDF(_selectedFile!);
     }
   }
+
+  Future<void> _extractHashtagsFromPDF(PlatformFile file) async {
+    final username = await _storage.read(key: 'username');
+    final token = await _storage.read(key: 'auth_token');
+
+    if (username == null || token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Authentication error. Please log in again.')),
+      );
+      return;
+    }
+
+    if (_selectedFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No file selected')),
+      );
+      return;
+    }
+
+    try {
+      final request = http.MultipartRequest(
+        'POST',
+        Uri.parse('https://nice-genuinely-pug.ngrok-free.app/extract-hashtags'),
+      );
+
+      request.fields['up_username'] = username;
+      request.fields['Token'] = token;
+      request.fields['interface'] = "Mobileapp";
+      request.fields['filename'] = _selectedFile!.name;
+
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          _selectedFile!.path!,
+          contentType: MediaType.parse(lookupMimeType(_selectedFile!.path!)!),
+        ),
+      );
+
+      final response = await request.send();
+
+      if (response.statusCode == 200) {
+        final responseBody = await response.stream.bytesToString();
+        final List<String> hashtags = List<String>.from(json.decode(responseBody));
+
+        setState(() {
+          _hashtags = hashtags;
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to fetch hashtags. Please try again.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error communicating with server: $e')),
+      );
+    }
+  }
+
+
 
   Future<void> _uploadFile(BuildContext context) async {
     final token = await _storage.read(key: 'auth_token');
@@ -179,7 +241,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     var request = http.MultipartRequest(
       'POST',
-      Uri.parse('https://nice-genuinely-pug.ngrok-free.app/upload'), // Replace with your API URL
+      Uri.parse('https://nice-genuinely-pug.ngrok-free.app/upload'),
     );
 
     request.fields['Token'] = token!;
@@ -188,6 +250,7 @@ class _ProfilePageState extends State<ProfilePage> {
     request.fields['interface'] = 'Mobileapp';
     request.fields['up_username'] = username!;
     request.fields['filename'] = _selectedFile!.name;
+    request.fields['hashtags'] = jsonEncode(_selectedHashtags); // Assign the comma-separated string
 
     request.files.add(
       await http.MultipartFile.fromPath(
@@ -211,10 +274,12 @@ class _ProfilePageState extends State<ProfilePage> {
     setState(() {
       _selectedFile = null;
       _descriptionController.clear();
+      _selectedHashtags.clear(); // Clear selected hashtags after upload
     });
 
     Navigator.pop(context);
   }
+
 
   Future<void> _deletePost(String postID) async {
     final token = await _storage.read(key: 'auth_token');
@@ -264,10 +329,41 @@ class _ProfilePageState extends State<ProfilePage> {
                   child: SizedBox(
                     height: 200,
                     child: _selectedFile!.extension == 'pdf'
-                        ? Icon(Icons.picture_as_pdf, size: 200) // Show PDF icon
+                        ? Icon(Icons.picture_as_pdf, size: 100) // Show PDF icon
                         : Image.file(
                       File(_selectedFile!.path!),
                       fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+              if (_hashtags.isNotEmpty)
+                Container(
+                  height: 50,
+                  margin: const EdgeInsets.all(8.0),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _hashtags.map((hashtag) {
+                        final isSelected = _selectedHashtags.contains(hashtag);
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: ChoiceChip(
+                            label: Text(hashtag),
+                            selected: isSelected,
+                            selectedColor: Colors.blueAccent,
+                            backgroundColor: Colors.grey[200],
+                            onSelected: (selected) {
+                              setState(() {
+                                if (selected) {
+                                  _selectedHashtags.add(hashtag);
+                                } else {
+                                  _selectedHashtags.remove(hashtag);
+                                }
+                              });
+                            },
+                          ),
+                        );
+                      }).toList(),
                     ),
                   ),
                 ),
@@ -339,9 +435,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       aspectRatio: 16 / 9,
                       viewportFraction: 0.8,
                       initialPage: 0,
-                      enableInfiniteScroll: true,
+                      enableInfiniteScroll: false,
                       reverse: false,
-                      autoPlay: true,
+                      autoPlay: false,
                       autoPlayInterval: Duration(seconds: 5),
                       autoPlayAnimationDuration: Duration(milliseconds: 800),
                       enlargeCenterPage: true,
