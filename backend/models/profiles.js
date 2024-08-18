@@ -10,6 +10,8 @@ const porfileSchema = new mongoose.Schema({
     post_type: {type: String , required: false},
     post_desc: {type: String, required: false},
     post_likes: {type: Number , required: false},
+    hashtags:{type : [String] , required : false},
+    broken_tags: {type: [String] , required: false},
     interface: {type: String, required: false},
     approved : {type: Boolean , required: false},
 });

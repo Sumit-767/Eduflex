@@ -1,8 +1,9 @@
-./backend/node_modules
+backend/node_modules
 backend/.env
 backend/testing.js
 backend/uploads
 backend/node_modules
-./tesseract
+tesseract
 apiuploads
 backend/hashtag_extractions
+backend/certifications

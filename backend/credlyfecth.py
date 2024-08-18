@@ -3,9 +3,14 @@ from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
-import os
+import os ,re
 import pandas as pd
 import pdfplumber
+from pdfminer.high_level import extract_pages ,extract_text
+from pdfminer.layout import LAParams, LTTextBox, LTTextLine
+import pytesseract
+from PIL import Image
+
 
 app = Flask(__name__)
 CORS(app)  
@@ -20,6 +25,7 @@ if not os.path.exists(UPLOAD_FOLDER):
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['HASHTAG_FOLDER'] = HASHTAG_FOLDER
 
+#--------------------------------------------------------------------------    UPLOAD
 def extract_ids_from_pdf(file_path):
     ids = []
     with pdfplumber.open(file_path) as pdf:
@@ -83,10 +89,60 @@ def extract_names_from_excel(file_path):
     
     return names
 
-@app.route("/autohash", methods=['POST'])
-def auto_hash():
-    
 
+def extract_lines_from_pdf(pdf_file):
+    extracted_lines = []
+    try:
+        # Process each page in the PDF
+        for page_layout in extract_pages(pdf_file, laparams=LAParams()):
+            for element in page_layout:
+                if isinstance(element, (LTTextBox, LTTextLine)):
+                    # Get text lines from each text element
+                    line_text = element.get_text().strip()
+                    if line_text:
+                        extracted_lines.append(line_text)
+    except Exception as e:
+        print(f"Error processing PDF: {e}")
+        return []
+    return extracted_lines
+
+#--------------------------------------------------------------------------    HASHTAG
+def extract_text_from_pdf(file_path):
+    try:
+        # Extract text from PDF
+        text = extract_text(file_path)
+        # Split the text into lines
+        lines = text.split('\n')
+        return lines
+    except Exception as e:
+        print(f"Error extracting text from PDF: {e}")
+        return []
+
+def extract_text_from_image(file_path):
+    try:
+        # Open image file
+        img = Image.open(file_path)
+        # Extract text using Tesseract
+        text = pytesseract.image_to_string(img)
+        # Split the text into lines
+        lines = text.split('\n')
+        return lines
+    except Exception as e:
+        print(f"Error extracting text from image: {e}")
+        return []
+
+def create_hashtags_from_lines(lines):
+    hashtags = []
+    for line in lines:
+        line = line.strip()
+        if line:
+            # Replace spaces and newlines with underscores
+            hashtag = '#{}'.format(re.sub(r'\s+', '_', line))
+            hashtags.append(hashtag)
+    return list(set(hashtags))
+
+
+##################################################################################        UPLOAD
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -125,7 +181,39 @@ def upload_file():
 
     return jsonify({'message': 'Failed to upload file'}), 500
 
+##################################################################################        HASHTAG
 
+@app.route('/autohash', methods=['POST'])
+def extract_hashtags():
+    data = request.json
+    temp = data.get('filePath')
+    mode = data.get('mode')
+    
+    # Construct the file path
+    file_path = os.path.normpath(os.path.join('./', temp))
+    
+    # Ensure file exists
+    if not os.path.isfile(file_path):
+        return jsonify({"error": "File not found"}), 404
+
+    try:
+        if mode == 'pdf':
+            lines = extract_text_from_pdf(file_path)
+        elif mode == 'image':
+            lines = extract_text_from_image(file_path)
+        else:
+            return jsonify({"error": "Invalid mode"}), 400
+        
+        hashtags = create_hashtags_from_lines(lines)
+        print(hashtags)
+        return jsonify({"hashtags": hashtags})
+    
+    except Exception as e:
+        print(f"Error processing file: {e}")
+        return jsonify({"error": "Failed to extract hashtags"}), 500
+    
+
+##################################################################################        CREDLY BADGES
 
 @app.route('/fetch-badges', methods=['GET'])
 def fetch_badges():

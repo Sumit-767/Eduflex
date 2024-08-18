@@ -536,7 +536,18 @@ server.post('/upload', upload.single('file'), async (req, res) => {
     try {
         const response = await axios.get('https://api.ipify.org?format=json');
         const userIP = response.data.ip;
-        const { Token, up_username, post_type, post_desc, filename, interface, selection } = req.body;
+        const { Token, up_username, post_type, post_desc, filename, interface } = req.body;
+        let { hashtags } = req.body;
+
+        // Handle `hashtags` whether it is a string or an array
+        if (typeof hashtags === 'string') {
+            hashtags = hashtags.split(',').filter(tag => tag.trim() !== '');
+        }
+
+        // Ensure hashtags is an array
+        if (!Array.isArray(hashtags)) {
+            return res.status(400).json({ message: "Invalid hashtags format" });
+        }
 
         const tokencheck = await CSRFToken.findOne({ token: Token });
         if (!tokencheck || up_username !== tokencheck.username) {
@@ -560,7 +571,7 @@ server.post('/upload', upload.single('file'), async (req, res) => {
             };
 
             pdf.convert(filePath, opts)
-                .then(() => {
+                .then(async() => {
                     // Rename the files with sequential numbers
                     const renameFiles = (directory, baseName) => {
                         fs.readdir(directory, (err, files) => {
@@ -579,7 +590,7 @@ server.post('/upload', upload.single('file'), async (req, res) => {
                                     if (err) {
                                         console.error('Error renaming file:', err);
                                     } else {
-                                       
+                                        // File renamed successfully
                                     }
                                 });
                             });
@@ -595,6 +606,14 @@ server.post('/upload', upload.single('file'), async (req, res) => {
                         .filter(file => file.startsWith(opts.out_prefix) && file.endsWith('.jpg'))
                         .map(file => path.join(`uploads/${up_username}/`, file));
 
+                    const cleanedHashtags = hashtags.map(tag => tag
+                        .replace(/[^a-zA-Z0-9\s]/g, ' ')  // Replace all non-alphanumeric characters with space
+                        .replace(/\s+/g, ' ')  // Replace multiple spaces with a single space
+                        .trim()  // Remove leading and trailing spaces
+                    );
+                    console.log("Cleaned:", cleanedHashtags);
+                    const brokenTags = cleanedHashtags.flatMap(tag => tag.split(' ')).filter(word => word.length > 0);
+                    console.log("Broken:", brokenTags);
 
                     // Save original PDF path and image paths to database
                     const newpost = new Profiles({
@@ -607,11 +626,13 @@ server.post('/upload', upload.single('file'), async (req, res) => {
                         post_type: post_type,
                         post_desc: post_desc,
                         post_likes: 0,
-                        approved : false,
+                        hashtags: cleanedHashtags,
+                        broken_tags: brokenTags,
+                        approved: false,
                         interface: interface
                     });
 
-                    newpost.save();
+                    await newpost.save();
                     logMessage(`[=] ${interface} ${userIP} : Posted a file ${up_username}-${filename}`);
                     return res.status(200).json({ message: "Uploaded Successfully" });
                 })
@@ -621,7 +642,7 @@ server.post('/upload', upload.single('file'), async (req, res) => {
                 });
 
         } else if (post_type === "mentor_file_upload") {
-           
+            // Handle other file upload types
             addMentees(up_username, req.file.filename, post_desc, selection, userIP, interface);
         }
 
@@ -630,6 +651,7 @@ server.post('/upload', upload.single('file'), async (req, res) => {
         res.status(500).json({ message: "Internal server error" });
     }
 });
+
 
 server.post("/myprofile", async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -809,8 +831,8 @@ server.post('/delete-batch', async (req, res) => {
 });
 
 
-server.post("/extract-hashtags", extract_hashtag_folder.single('file') ,async(req,res)=> {
-    const userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+server.post("/extract-hashtags", extract_hashtag_folder.single('file'), async (req, res) => {
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (Array.isArray(userIP)) {
         userIP = userIP[0];
@@ -818,31 +840,63 @@ server.post("/extract-hashtags", extract_hashtag_folder.single('file') ,async(re
         userIP = userIP.split(',')[0].trim();
     }
 
-    const {Token , interface , filename , up_username} = req.body;
-    console.log("Token :" , Token , " interface : ",interface , " Filename : ", filename , "username :", up_username);
+    const { Token, interface, filename, up_username } = req.body;
+    console.log("Token:", Token, "interface:", interface, "Filename:", filename, "username:", up_username);
     const filePath = req.file.path;
 
-    console.log("Token :", Token, " interface : ", interface, " Filename : ", filename, "username :", up_username);
-    console.log("File saved at:", filePath);
-
     try {
-
-        const flaskResponse = await axios.post('http://localhost:5000/extract-hashtags', {
-            filePath: filePath
+        const flaskResponse = await axios.post('http://localhost:5000/autohash', {
+            filePath: filePath,
+            mode: "pdf"
         });
-
-        // Extract the hashtags from the Flask server response
         const hashtags = flaskResponse.data.hashtags;
 
-        // Send the hashtags back to the client
+        if (!hashtags || hashtags.length === 0) {
+            const opts = {
+                format: 'jpeg',
+                out_dir: path.join(__dirname, 'hashtag_extractions'),
+                out_prefix: `${path.basename(filePath, path.extname(filePath))}`,
+                page: 1 // Only convert the first page
+            };
+
+            if (!fs.existsSync(opts.out_dir)) {
+                fs.mkdirSync(opts.out_dir, { recursive: true });
+            }
+
+            await pdf.convert(filePath, opts);
+            console.log("First page of PDF converted to image successfully");
+
+            const imageFiles = fs.readdirSync(opts.out_dir)
+                .filter(file => file.startsWith(opts.out_prefix) && file.endsWith('.jpeg'))
+                .sort();
+
+            if (imageFiles.length > 0) {
+                const oldPath = path.join(opts.out_dir, imageFiles[0]);
+                const newPath = path.join(opts.out_dir, `${opts.out_prefix}-1.jpeg`);
+                fs.renameSync(oldPath, newPath);
+                console.log(`Renamed ${imageFiles[0]} to ${opts.out_prefix}-1.jpeg \n NEWPATHS ${newPath}`);
+
+                // Call the Flask OCR function with the image path for further hashtag extraction
+                const ocrResponse = await axios.post('http://localhost:5000/autohash', {
+                    filePath: newPath,
+                    mode: "image"
+                });
+
+                const ocrHashtags = ocrResponse.data.hashtags || [];
+                return res.status(200).json(ocrHashtags);
+            } else {
+                console.error('No image file was created.');
+                return res.status(500).json({ message: 'Failed to create image for OCR' });
+            }
+        }
         return res.status(200).json(hashtags);
 
     } catch (error) {
         console.error('Error communicating with Flask server:', error);
         return res.status(500).json({ message: 'Failed to extract hashtags' });
     }
-
 });
+
 
 server.post("/postpermission" ,async (req, res) => {
     const userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
