@@ -15,6 +15,7 @@ const multer = require("multer");
 require("dotenv").config();
 const cors = require("cors");
 const pdf = require('pdf-poppler');
+const { exec } = require('child_process');
 const CSRFToken = require("./models/csrfttoken");
 const User = require("./models/users");
 const Profiles = require("./models/profiles");
@@ -207,6 +208,47 @@ async function fetchAndSaveBadges(userUsername) {
     }
 }
 
+async function validatecert(username, filename) {
+    const validateUrl = 'http://127.0.0.1:5000/validate-certificate'; // Flask endpoint for validation
+
+    // Construct the request data
+    const requestData = {
+        username: username,
+        filename: username+'-'+filename
+    };
+
+    try {
+        // Validate the uploaded PDF
+        const validateResponse = await fetch(validateUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+
+        if (!validateResponse.ok) {
+            throw new Error(`Validation failed with status: ${validateResponse.status}`);
+        }
+
+        const result = await validateResponse.json();
+        console.log('Validation result:', result);
+
+        // Process the result
+        if (result.result === "Real") {
+            return [result.result, null];
+        } else if (result.result === "Fake") {
+            return [result.result, result["Edited By"]];
+        } else {
+            throw new Error('Unexpected result format');
+        }
+
+    } catch (error) {
+        console.error('Error:', error);
+        return [null, null]; // Return nulls or handle the error as needed
+    }
+}
+
 
 server.set("view engine", "hbs");
 server.set("views", __dirname + "/views");
@@ -220,19 +262,21 @@ server.use(express.static(path.join(__dirname, "public")));
 server.use(express.static("public"));
 
 const storage = multer.diskStorage({
-    destination: (req, file, callback) =>
-    {
+    destination: (req, file, callback) => {
         const uploadDir = `uploads/${req.body.up_username}`;
         fs.mkdirSync(uploadDir, { recursive: true });
         callback(null, uploadDir);
     },
-    filename: (req,file,callback)=>{
-        console.log("filename");
-        callback(null, req.body.up_username + "-" + file.originalname );
+    filename: (req, file, callback) => {
+        // Replace spaces with underscores in the file name
+        const originalName = file.originalname.replace(/\s+/g, '_');
+        const newFilename = req.body.up_username + "-" + originalName;
+        console.log("Filename:", newFilename);
+        callback(null, newFilename);
     }
 });
 
-const upload  = multer({ storage : storage});
+const upload = multer({ storage: storage });
 
 const hashtag_storage = multer.diskStorage({
     destination: (req,file,callback) =>
@@ -559,7 +603,8 @@ server.post('/upload', upload.single('file'), async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        const filePath = `uploads/${up_username}/${up_username}-${filename}`;
+        const sanitizedFilename = filename.replace(/\s+/g, '_');
+        const filePath = `uploads/${up_username}/${up_username}-${sanitizedFilename}`;
 
         if (post_type === "post") {
             // Convert PDF to images
@@ -615,6 +660,59 @@ server.post('/upload', upload.single('file'), async (req, res) => {
                     const brokenTags = cleanedHashtags.flatMap(tag => tag.split(' ')).filter(word => word.length > 0);
                     console.log("Broken:", brokenTags);
 
+                    const [model_result, producer] = await validatecert(up_username, sanitizedFilename);
+
+                    if (model_result == 'Real') {
+                        const newpost = new Profiles({
+                            firstname: user_data.firstname,
+                            lastname: user_data.lastname,
+                            username: up_username,
+                            postID: `${up_username}-${uuidv4()}`,
+                            file: filePath, // Store the PDF file path
+                            imagePaths: imagePaths, // Store the array of image paths
+                            post_type: post_type,
+                            post_desc: post_desc,
+                            post_likes: 0,
+                            hashtags: cleanedHashtags,
+                            broken_tags: brokenTags,
+                            approved: false,
+                            interface: interface,
+                            embedding : null,
+                            model_approved: true,
+                            real: true,
+                        });
+                        await newpost.save();
+                        logMessage(`[=] ${interface} ${userIP} : Posted a file ${up_username}-${filename}`);
+                        return res.status(200).json({ message: "Uploaded Successfully" });
+
+                    } else if (model_result == 'Fake') {
+                        const newpost = new Profiles({
+                            firstname: user_data.firstname,
+                            lastname: user_data.lastname,
+                            username: up_username,
+                            postID: `${up_username}-${uuidv4()}`,
+                            file: filePath, // Store the PDF file path
+                            imagePaths: imagePaths, // Store the array of image paths
+                            post_type: post_type,
+                            post_desc: post_desc,
+                            post_likes: 0,
+                            hashtags: cleanedHashtags,
+                            broken_tags: brokenTags,
+                            approved: false,
+                            interface: interface,
+                            model_approved: true,
+                            real: false,
+                            edited_by: producer,
+                        });
+
+                        await newpost.save();
+                        logMessage(`[=] ${interface} ${userIP} : Posted a file ${up_username}-${filename}`);
+                        return res.status(200).json({ message: "Uploaded Successfully" });
+
+                    } else {
+                        return res.status(500).json({ error: 'Unknown validation result' });
+                    }
+
                     // Save original PDF path and image paths to database
                     const newpost = new Profiles({
                         firstname: user_data.firstname,
@@ -629,7 +727,9 @@ server.post('/upload', upload.single('file'), async (req, res) => {
                         hashtags: cleanedHashtags,
                         broken_tags: brokenTags,
                         approved: false,
-                        interface: interface
+                        interface: interface,
+                        embedding : null,
+                        needsEmbedding: true
                     });
 
                     await newpost.save();

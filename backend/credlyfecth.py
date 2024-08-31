@@ -3,14 +3,23 @@ from flask_cors import CORS
 import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
-import os ,re
+import os ,re ,nltk, fitz
 import pandas as pd
+from werkzeug.utils import secure_filename
 import pdfplumber
 from pdfminer.high_level import extract_pages ,extract_text
-from pdfminer.layout import LAParams, LTTextBox, LTTextLine
+from pdfminer.layout import LAParams, LTTextBox, LTTextLine, LTChar
+from pdfminer.pdfinterp import PDFResourceManager, PDFPageInterpreter
+from pdfminer.converter import PDFPageAggregator
+from pdfminer.pdfpage import PDFPage
 import pytesseract
 from PIL import Image
+from nltk.corpus import stopwords
 
+from model import extract_font_information_with_metadata_and_images, prepare_data_for_prediction, model, preprocessor
+
+nltk.download('stopwords')
+stop_words = set(stopwords.words('english'))
 
 app = Flask(__name__)
 CORS(app)  
@@ -22,8 +31,12 @@ HASHTAG_FOLDER = 'hashtag_extraction'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
+CERT_DETECTION = 'uploads'
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['HASHTAG_FOLDER'] = HASHTAG_FOLDER
+app.config['CERT_DETECTION'] = CERT_DETECTION
+
 
 #--------------------------------------------------------------------------    UPLOAD
 def extract_ids_from_pdf(file_path):
@@ -136,9 +149,14 @@ def create_hashtags_from_lines(lines):
     for line in lines:
         line = line.strip()
         if line:
-            # Replace spaces and newlines with underscores
-            hashtag = '#{}'.format(re.sub(r'\s+', '_', line))
-            hashtags.append(hashtag)
+            # Tokenize the line into words
+            words = re.findall(r'\w+', line)
+            # Remove stop words and create hashtags from remaining words
+            filtered_words = [word for word in words if word.lower() not in stop_words]
+            if filtered_words:
+                # Join the remaining words with underscores
+                hashtag = '#{}'.format('_'.join(filtered_words))
+                hashtags.append(hashtag)
     return list(set(hashtags))
 
 
@@ -275,6 +293,55 @@ def fetch_badges():
 
     # Return the JSON response
     return jsonify(badges_data)
+
+@app.route('/validate-certificate', methods=['POST'])
+def validate_certificate():
+    try:
+        # Get the JSON data from the request
+        data = request.json
+        username = data.get('username')
+        filename = data.get('filename')
+        
+        if not username or not filename:
+            return jsonify({'error': 'Username and filename are required'}), 400
+        
+        # Construct the full path for the uploaded file
+        file_path = os.path.join(app.config['CERT_DETECTION'], username, secure_filename(filename))
+        print("The original file path:", file_path)
+        
+        # Ensure file exists
+        if not os.path.isfile(file_path):
+            return jsonify({'error': 'File not found'}), 404
+        
+        # Process the PDF file
+        features = extract_font_information_with_metadata_and_images(file_path)
+        if not features:
+            return jsonify({'error': 'No features extracted from PDF'}), 500
+        
+        # Prepare data for prediction
+        df = prepare_data_for_prediction(features)
+        
+        # Apply preprocessing and make predictions
+        X_processed = preprocessor.transform(df)
+        predictions = model.predict(X_processed)
+        
+        # Determine the final result
+        all_real = True
+        fake_producer = None
+        
+        for i, pred in enumerate(predictions):
+            if pred <= 0.5:
+                all_real = False
+                fake_producer = features[i]['Producer']
+                break
+        
+        if all_real:
+            return jsonify({"result": "Real"})
+        else:
+            return jsonify({"result": "Fake", "Edited_By": f"{fake_producer}"})
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
     app.run(port=5000)

@@ -14,6 +14,9 @@ const porfileSchema = new mongoose.Schema({
     broken_tags: {type: [String] , required: false},
     interface: {type: String, required: false},
     approved : {type: Boolean , required: false},
+    model_approved : {type: Boolean , required: false},
+    real : {type: Boolean , required: false},
+    edited_by : {type: String, required: false},
 });
 
 module.exports = mongoose.model('Profiles', porfileSchema);
