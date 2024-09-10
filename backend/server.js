@@ -1,5 +1,5 @@
 const express = require("express");
-const https = require("http");
+const http = require("http");
 const fs = require("fs");
 const mongoose = require("mongoose");
 const path = require("path");
@@ -16,6 +16,7 @@ require("dotenv").config();
 const cors = require("cors");
 const pdf = require('pdf-poppler');
 const { exec } = require('child_process');
+const socketIo = require('socket.io');
 const CSRFToken = require("./models/csrfttoken");
 const User = require("./models/users");
 const Profiles = require("./models/profiles");
@@ -26,8 +27,12 @@ const BASE_URL = 'https://nice-genuinely-pug.ngrok-free.app/';
 const serverSK = process.env.SERVER_SEC_KEY;
 
 const server = express();
+
+const app = http.createServer(server);
 server.use(cookieParser());
 server.use(bodyParser.json());
+
+const io = socketIo(app);
 
 // Use CORS middleware
 server.use(cors({
@@ -56,7 +61,6 @@ const logMessage = (message) => {
     const timestamp = new Date().toISOString();
     const logEntry = `[${timestamp}] ${message}\n`;
 
-    // Ensure the log file is created if it doesn't exist
     fs.open(logFile, 'a', (err, fd) => {
         if (err) {
             throw err;
@@ -238,7 +242,7 @@ async function validatecert(username, filename) {
         if (result.result === "Real") {
             return [result.result, null];
         } else if (result.result === "Fake") {
-            return [result.result, result["Edited By"]];
+            return [result.result, result["Edited_By"]];
         } else {
             throw new Error('Unexpected result format');
         }
@@ -248,6 +252,47 @@ async function validatecert(username, filename) {
         return [null, null]; // Return nulls or handle the error as needed
     }
 }
+
+async function checkToken(req, res, next) {
+    const { Token, interface } = req.body; // Assuming they're in the body
+    console.log("check token : ",Token , "   ", interface);
+    if (!Token || !interface) {
+        return res.status(400).json({ message: "Token or interface missing" });
+    }
+
+    const token_data = await CSRFToken.findOne({ token: Token });
+    if (!token_data) {
+        return res.status(400).json({ message: "Invalid token" });
+    }
+
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
+
+    if ((interface === "Mobile") && (token_data.interface === interface)) {
+        const tokenAge = (Date.now() - token_data.createdAt) / (1000 * 60 * 60 * 24); // token valid for a month
+        if (tokenAge > 30) {
+            logMessage(`[=] Mobileapp ${userIP} : Token for user ${token_data.username} has expired`);
+            await CSRFToken.deleteOne({ token: token_data.token });
+            return res.status(400).json({ message: "token expired" });
+        }
+    } else if ((interface === "Webapp") && (token_data.interface === interface)) {
+        const tokenAge = (Date.now() - token_data.createdAt) / (1000 * 60); // Token valid for 15 minutes
+        if (tokenAge > 15) {
+            logMessage(`[=] Webapp ${userIP} : Token for user ${token_data.username} has expired`);
+            await CSRFToken.deleteOne({ token: token_data.token });
+            return res.status(400).json({ message: "token expired" });
+        }
+    }
+    console.log("Token is correct ")
+
+    next();
+}
+
 
 
 server.set("view engine", "hbs");
@@ -502,7 +547,7 @@ server.post("/register", async (req, res) => {
     }
 });
 
-server.post("/changeprofile",async (req, res) => {
+server.post("/changeprofile",checkToken,async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (Array.isArray(userIP)) {
@@ -576,7 +621,7 @@ server.post("/changeprofile",async (req, res) => {
 });
 
 
-server.post('/upload', upload.single('file'), async (req, res) => {
+server.post('/upload', checkToken,upload.single('file'), async (req, res) => {
     try {
         const response = await axios.get('https://api.ipify.org?format=json');
         const userIP = response.data.ip;
@@ -680,6 +725,7 @@ server.post('/upload', upload.single('file'), async (req, res) => {
                             embedding : null,
                             model_approved: true,
                             real: true,
+                            edited_by: producer
                         });
                         await newpost.save();
                         logMessage(`[=] ${interface} ${userIP} : Posted a file ${up_username}-${filename}`);
@@ -713,28 +759,6 @@ server.post('/upload', upload.single('file'), async (req, res) => {
                         return res.status(500).json({ error: 'Unknown validation result' });
                     }
 
-                    // Save original PDF path and image paths to database
-                    const newpost = new Profiles({
-                        firstname: user_data.firstname,
-                        lastname: user_data.lastname,
-                        username: up_username,
-                        postID: `${up_username}-${uuidv4()}`,
-                        file: filePath, // Store the PDF file path
-                        imagePaths: imagePaths, // Store the array of image paths
-                        post_type: post_type,
-                        post_desc: post_desc,
-                        post_likes: 0,
-                        hashtags: cleanedHashtags,
-                        broken_tags: brokenTags,
-                        approved: false,
-                        interface: interface,
-                        embedding : null,
-                        needsEmbedding: true
-                    });
-
-                    await newpost.save();
-                    logMessage(`[=] ${interface} ${userIP} : Posted a file ${up_username}-${filename}`);
-                    return res.status(200).json({ message: "Uploaded Successfully" });
                 })
                 .catch(error => {
                     console.error('Error converting PDF to images:', error);
@@ -753,7 +777,7 @@ server.post('/upload', upload.single('file'), async (req, res) => {
 });
 
 
-server.post("/myprofile", async (req, res) => {
+server.post("/myprofile",checkToken, async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
 
@@ -798,7 +822,7 @@ server.post("/myprofile", async (req, res) => {
 });
 
 
-server.post('/deletePost', async (req, res) => {
+server.post('/deletePost', checkToken, async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
 
@@ -854,7 +878,7 @@ server.post('/deletePost', async (req, res) => {
   });
 
 
-server.post("/mybatches" ,async(req,res) =>{
+server.post("/mybatches",checkToken , async(req,res) =>{
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
 
@@ -893,7 +917,7 @@ server.post("/mybatches" ,async(req,res) =>{
 
 });
 
-server.post('/delete-batch', async (req, res) => {
+server.post('/delete-batch',checkToken, async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
 
@@ -931,7 +955,7 @@ server.post('/delete-batch', async (req, res) => {
 });
 
 
-server.post("/extract-hashtags", extract_hashtag_folder.single('file'), async (req, res) => {
+server.post("/extract-hashtags",checkToken, extract_hashtag_folder.single('file'), async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (Array.isArray(userIP)) {
@@ -998,7 +1022,7 @@ server.post("/extract-hashtags", extract_hashtag_folder.single('file'), async (r
 });
 
 
-server.post("/postpermission" ,async (req, res) => {
+server.post("/postpermission", checkToken, async (req, res) => {
     const userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (Array.isArray(userIP)) {
@@ -1046,7 +1070,10 @@ server.post("/postpermission" ,async (req, res) => {
                     post_likes: post.post_likes,
                     file: post.file,
                     interface: post.interface,
-                    approved: post.approved
+                    approved: post.approved,
+                    model_approved: post.model_approved,
+                    real : post.real,
+                    ...(post.real === false && { edited_by: post.edited_by })
                 }));
             }
         }
@@ -1060,7 +1087,7 @@ server.post("/postpermission" ,async (req, res) => {
     }
 });
 
-server.post("/status-post",async(req,res)=> {
+server.post("/status-post", checkToken,async(req,res)=> {
     const userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
 
     if (Array.isArray(userIP)) {
@@ -1115,8 +1142,116 @@ server.post("/status-post",async(req,res)=> {
 }
 });
 
+server.get("/search-user-result",async(req,res)=> {
+    try {
+        const searchQuery = req.query.q; 
+        console.log(searchQuery);
+        if (!searchQuery) {
+            return res.status(400).json({ error: 'Search query is required' });
+        }
+
+        const users = await User.find({
+            $or: [
+                { firstname: { $regex: searchQuery, $options: 'i' } },
+                { lastname: { $regex: searchQuery, $options: 'i' } },
+                { username: { $regex: searchQuery, $options: 'i' } },
+            ]
+        });
+
+        if (users.length === 0) {
+            return res.status(404).json({ message: 'No users found' });
+        }
+
+        return res.json(users);
+    } catch (err) {
+        console.error('Error searching for users:', err);
+        res.status(500).json({ error: 'An error occurred while searching for users' });
+    }
+});
+
+server.get("/profile", async (req, res) => {
+    const { username } = req.query; // Correct extraction of username
+    console.log(username);
+    try {
+        const profiles = await Profiles.find({ username: username }); 
+        console.log(profiles)
+
+        if (profiles.length === 0) {
+            return res.status(404).json({ message: "No profiles found" });
+        }
+
+        // Map the results to only include relevant fields
+        const responseData = profiles.map(profile => ({
+            imagePaths: profile.imagePaths,
+            post_desc: profile.post_desc,
+            hashtags: profile.hashtags,
+            post_likes: profile.post_likes
+        }));
+
+        console.log(responseData);
+        res.status(200).json(responseData); // Return the array of profiles
+    } catch (error) {
+        console.error('Error fetching profiles:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
 
 
 server.listen(8000, () => {
     console.log(`http://localhost:8000`);
-  })
+  });
+
+
+const getChatCollection = (user1, user2) => {
+    const sortedUsers = [user1, user2].sort();
+    const collectionName = `chat_${sortedUsers[0]}_${sortedUsers[1]}`;
+
+    return mongoose.connection.collection(collectionName);
+};
+
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+
+    socket.on('disconnect', () => {
+        console.log('A user disconnected:', socket.id);
+    });
+});
+
+const userSockets = {}; // To keep track of user-specific sockets
+
+io.on('connection', (socket) => {
+    console.log('A user connected:', socket.id);
+
+    // When a user authenticates, store their socket ID
+    socket.on('authenticate', ({ username }) => {
+        userSockets[username] = socket;
+    });
+
+    // Listen for 'private_message' event from clients
+    socket.on('private_message', async ({ sender, receiver, message }) => {
+        console.log(`Message received from ${sender} to ${receiver}: ${message}`);
+        
+        // Save message logic (not shown here) ...
+
+        // Emit the message back only to the sender
+        if (userSockets[sender]) {
+            userSockets[sender].emit('receive_message', {
+                sender,
+                message,
+                timestamp: new Date(),
+            });
+        }
+    });
+
+    socket.on('disconnect', () => {
+        console.log('A user disconnected:', socket.id);
+        // Clean up the userSockets mapping if necessary
+        for (const [username, userSocket] of Object.entries(userSockets)) {
+            if (userSocket === socket) {
+                delete userSockets[username];
+                break;
+            }
+        }
+    });
+});
