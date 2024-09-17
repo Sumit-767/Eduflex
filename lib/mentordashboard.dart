@@ -150,72 +150,76 @@ class _PostPermissionPageState extends State<PostPermissionPage> {
   Future<void> _fetchPosts() async {
     final token = await _storage.read(key: 'auth_token');
     final username = await _storage.read(key: 'username');
-    final response = await http.post(
-      Uri.parse('https://nice-genuinely-pug.ngrok-free.app/postpermission'),
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: json.encode({
-        'Token': token,
-        'up_username': username,
-        'interface': 'Mobileapp',
-      }),
-    );
 
-    if (response.statusCode == 200) {
-      final data = json.decode(response.body) as Map<String, dynamic>;
-      print("DATA ++++++++++++++++++++++++++++++++++++++++++\n$data");
+    try {
+      final response = await http.post(
+        Uri.parse('https://nice-genuinely-pug.ngrok-free.app/postpermission'),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: json.encode({
+          'Token': token,
+          'up_username': username,
+          'interface': 'Mobileapp',
+        }),
+      );
 
-      final postsData = data.map((batchName, studentsMap) {
-        final students = studentsMap as Map<String, dynamic>;
-        final transformedStudents = students.map((studentName, postList) {
-          final posts = (postList as List<dynamic>).map((post) {
-            // Check if imagePaths is not null and is a list
-            final imagePaths = post['imagePaths'] != null && post['imagePaths'] is List<dynamic>
-                ? List<String>.from(post['imagePaths'])
-                : <String>[];
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body) as Map<String, dynamic>;
+        print("DATA ++++++++++++++++++++++++++++++++++++++++++\n$data");
 
-            return {
-              'postID': post['postId'],
-              'imagePaths': imagePaths,
-              'post_desc': post['post_desc']
-            };
-          }).toList(); // This `toList()` is correct as we're mapping over a list
-          return MapEntry(studentName, posts);
+        final postsData = data.map((batchName, studentsMap) {
+          final students = studentsMap as Map<String, dynamic>;
+          final transformedStudents = students.map((studentName, postList) {
+            final posts = (postList as List<dynamic>).map((post) {
+              // Correctly map the postID field
+              final postID = post['postId'] ?? '';  // Use 'postId' if that's the correct field name
+
+              final imagePaths = post['imagePaths'] != null && post['imagePaths'] is List<dynamic>
+                  ? List<String>.from(post['imagePaths'])
+                  : <String>[];
+
+              return {
+                'postID': postID,
+                'imagePaths': imagePaths,
+                'post_desc': post['post_desc'] ?? '',
+                'real': post['real'] ?? true,
+                'model_approved': post['model_approved'] ?? false,
+                'edited_by': post['edited_by'] ?? 'Unknown'
+              };
+            }).toList();
+            return MapEntry(studentName, posts);
+          });
+          return MapEntry(batchName, transformedStudents);
         });
-        return MapEntry(batchName, transformedStudents);
-      });
-
-      setState(() {
-        _posts = postsData as Map<String, Map<String, List<Map<String, dynamic>>>>;
-        _isLoading = false;
-        if (_posts.isNotEmpty) {
-          final firstBatch = _posts.keys.first;
-          final firstStudent = _posts[firstBatch]?.keys.first ?? '';
-          batchName = firstBatch;
-          studentName = firstStudent;
-        }
-      });
 
 
+        setState(() {
+          _posts = postsData as Map<String, Map<String, List<Map<String, dynamic>>>>;
+          _isLoading = false;
+          if (_posts.isNotEmpty) {
+            final firstBatch = _posts.keys.first;
+            final firstStudent = _posts[firstBatch]?.keys.first ?? '';
+            batchName = firstBatch;
+            studentName = firstStudent;
+          }
+        });
 
-      setState(() {
-        _posts = postsData as Map<String, Map<String, List<Map<String, dynamic>>>>;
-        _isLoading = false;
-        if (_posts.isNotEmpty) {
-          final firstBatch = _posts.keys.first;
-          final firstStudent = _posts[firstBatch]?.keys.first ?? '';
-          batchName = firstBatch;
-          studentName = firstStudent;
-        }
-      });
-    } else {
+      } else {
+        setState(() {
+          _errorMessage = 'Failed to load posts: ${response.reasonPhrase}';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching posts: $e');
       setState(() {
         _errorMessage = 'Failed to load posts';
         _isLoading = false;
       });
     }
   }
+
 
 
   Future<void> _approvePost(String postId) async {
@@ -315,6 +319,7 @@ class _PostPermissionPageState extends State<PostPermissionPage> {
                 final post = _posts[batchName]?[studentName]?[index] ?? {};
                 final imageUrls = post['imagePaths'] as List<dynamic>;
 
+
                 return Card(
                   margin: const EdgeInsets.all(8.0),
                   child: Column(
@@ -331,6 +336,32 @@ class _PostPermissionPageState extends State<PostPermissionPage> {
                         padding: const EdgeInsets.all(8.0),
                         child: Text(post['post_desc'] ?? ''),
                       ),
+                      // Condition for checking if the certificate is fake
+                      if(post['real'] == false) ...[
+                        Padding(padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'This certificate is fake.',
+                            style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'Edited by: '+ post["edited_by"],
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ]
+                      else if (post["real"] == true) ...[
+                        // Condition for when the certificate is real
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'Model approves this certificate.',
+                            style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
                       CarouselSlider(
                         options: CarouselOptions(
                           height: 200,
@@ -352,12 +383,18 @@ class _PostPermissionPageState extends State<PostPermissionPage> {
                       ButtonBar(
                         children: [
                           TextButton(
-                            style: TextButton.styleFrom(foregroundColor: Colors.blueAccent ,backgroundColor: Colors.white70),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.blueAccent,
+                              backgroundColor: Colors.white70,
+                            ),
                             onPressed: () => _approvePost(post['postID']),
                             child: const Text('Approve'),
                           ),
                           TextButton(
-                            style: TextButton.styleFrom(foregroundColor: Colors.redAccent ,backgroundColor: Colors.white70),
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.redAccent,
+                              backgroundColor: Colors.white70,
+                            ),
                             onPressed: () => _rejectPost(post['postID']),
                             child: const Text('Reject'),
                           ),
@@ -366,6 +403,9 @@ class _PostPermissionPageState extends State<PostPermissionPage> {
                     ],
                   ),
                 );
+
+
+
               },
             ),
           ),

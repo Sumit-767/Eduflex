@@ -43,6 +43,7 @@ dependencies:
   url_launcher: ^6.1.11
   mime: ^1.0.0
   carousel_slider: ^5.0.0
+  socket_io_client: ^2.0.0
 
 
   # The following adds the Cupertino Icons font to your application.

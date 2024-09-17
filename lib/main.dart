@@ -51,13 +51,10 @@ class _SplashScreenState extends State<SplashScreen> {
       final currentVersion = (await _getAppVersion()).split('+').first;
       final releaseUrl = 'https://api.github.com/repos/Soham01011/Eduflex/releases/latest'; // Replace with the repository name
       final response = await http.get(Uri.parse(releaseUrl));
-      print("++++++++++++++++1");
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final latestVersion = (data['tag_name'] ?? '').replaceFirst('v', '').split('+').first; // Remove build number if any
-
-        print("**********************$latestVersion***********$currentVersion");
 
         if (latestVersion != currentVersion) {
           final apkUrl = (data['assets'] as List<dynamic>)

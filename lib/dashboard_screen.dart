@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:mime/mime.dart';
 import 'package:carousel_slider/carousel_slider.dart';
+import 'package:socket_io_client/socket_io_client.dart' as IO;
 
 
 class DashboardScreen extends StatefulWidget {
@@ -87,12 +88,71 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 }
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget{
+  @override
+  _HomePageState createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  List<Map<String, dynamic>> _searchResults = [];
+  bool _isSearching = false;
+
+  Future<void> _searchUsers(String query) async {
+    if (query.isEmpty) {
+      setState(() {
+        _isSearching = false;
+        _searchResults = [];
+      });
+      return;
+    }
+
+    setState(() {
+      _isSearching = true;
+    });
+
+    final response = await http.get(
+      Uri.parse('https://nice-genuinely-pug.ngrok-free.app/search-user-result?q=$query'),
+    );
+
+    if (response.statusCode == 200) {
+      final List<dynamic> data = json.decode(response.body);
+      setState(() {
+        _searchResults = data.map((user) => user as Map<String, dynamic>).toList();
+      });
+    } else {
+      setState(() {
+        _searchResults = [];
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Home'),
+        title: Row(
+          children: [
+            Text(
+              'EduFlex',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            SizedBox(width: 16.0),
+            Expanded(
+              child: TextField(
+                onChanged: (value) {
+                  _searchUsers(value);
+                },
+                decoration: InputDecoration(
+                  hintText: 'Search users...',
+                  hintStyle: TextStyle(color: Colors.black38),
+                  prefixIcon: Icon(Icons.search, color: Colors.black38),
+                  border: InputBorder.none,
+                ),
+                style: TextStyle(color: Colors.black38),
+              ),
+            ),
+          ],
+        ),
         leading: IconButton(
           icon: Icon(Icons.arrow_back),
           onPressed: () {
@@ -100,18 +160,313 @@ class HomePage extends StatelessWidget {
           },
         ),
       ),
-      body: Center(child: Text('Home Page')),
+      body: _isSearching && _searchResults.isEmpty
+          ? Center(child: Text('No results found'))
+          : _isSearching
+          ? ListView.builder(
+        itemCount: _searchResults.length,
+        itemBuilder: (context, index) {
+          final user = _searchResults[index];
+          return ListTile(
+            title: Text('${user['firstname']} ${user['lastname']}'),
+            subtitle: Text(user['username']),
+            onTap: () {
+              // Implement navigation to the user's profile
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => UserProfilePage(
+                    username: user['username'],           // The user data
+                  ),
+                ),
+              );
+
+            },
+          );
+        },
+      )
+          : Center(child: Text('Home Page')), // Replace this with your original home page content
     );
   }
 }
+
+class UserProfilePage extends StatefulWidget {
+  final String username;
+
+  UserProfilePage({required this.username});
+
+  @override
+  _UserProfilePageState createState() => _UserProfilePageState();
+}
+
+class _UserProfilePageState extends State<UserProfilePage> {
+  List<Map<String, dynamic>> _posts = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserProfile();
+  }
+
+  Future<void> _fetchUserProfile() async {
+    final Uri url = Uri.parse('https://nice-genuinely-pug.ngrok-free.app/profile?username=${widget.username}');
+
+    try {
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _posts = List<Map<String, dynamic>>.from(data);
+          _isLoading = false;
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to fetch profile')),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (error) {
+      print('Error fetching profile: $error');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error fetching profile')),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('${widget.username}'),
+        actions: [
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ChatScreen(username: widget.username),
+                ),
+              );
+            },
+            icon: Icon(Icons.send, color: Colors.white),
+            label: Text('Message'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue, // Set button color to blue
+              padding: EdgeInsets.symmetric(horizontal: 10.0),
+              textStyle: TextStyle(fontSize: 16.0), // Adjust font size if needed
+            ),
+          ),
+          SizedBox(width: 10.0), // Add some padding on the right
+        ],
+      ),
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : _posts.isEmpty
+          ? Center(child: Text('No posts available'))
+          : SingleChildScrollView(
+        child: Column(
+          children: _posts.map((post) {
+            final List<dynamic> images = post['imagePaths'] ?? [];
+            final List<dynamic> hashtags = post['hashtags'] ?? [];
+
+            return Card(
+              margin: const EdgeInsets.all(8.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (images.isNotEmpty) ...[
+                    CarouselSlider(
+                      options: CarouselOptions(
+                        height: 400.0,
+                        aspectRatio: 16 / 9,
+                        viewportFraction: 0.8,
+                        initialPage: 0,
+                        enableInfiniteScroll: false,
+                        reverse: false,
+                        autoPlay: false,
+                        autoPlayInterval: Duration(seconds: 5),
+                        autoPlayAnimationDuration: Duration(milliseconds: 800),
+                        enlargeCenterPage: true,
+                        scrollDirection: Axis.horizontal,
+                      ),
+                      items: images.map<Widget>((path) {
+                        return Image.network(
+                          'https://nice-genuinely-pug.ngrok-free.app/$path',
+                          fit: BoxFit.cover,
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                  Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Text(
+                      post['post_desc'] ?? 'No Description',
+                      style: TextStyle(fontSize: 16.0),
+                    ),
+                  ),
+                  SizedBox(height: 16.0),
+                  if (hashtags.isNotEmpty) ...[
+                    Wrap(
+                      spacing: 8.0,
+                      children: hashtags.map<Widget>((tag) {
+                        return Chip(
+                          label: Text('#$tag'),
+                        );
+                      }).toList(),
+                    ),
+                  ],
+                  SizedBox(height: 16.0),
+                  Row(
+                    children: [
+                      Icon(Icons.thumb_up),
+                      SizedBox(width: 8.0),
+                      Text('${post['post_likes'] ?? 0} Likes'),
+                    ],
+                  ),
+                  SizedBox(height: 16.0),
+                ],
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+}
+
+
+
+class ChatScreen extends StatefulWidget {
+  final String username;
+
+  const ChatScreen({Key? key, required this.username}) : super(key: key);
+
+  @override
+  _ChatScreenState createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController _controller = TextEditingController();
+  List<String> _messages = [];
+  late IO.Socket _socket;
+  final FlutterSecureStorage _storage = FlutterSecureStorage();
+
+  @override
+  void initState() {
+    super.initState();
+    _initSocket();
+  }
+
+  void _initSocket() {
+    _socket = IO.io('https://nice-genuinely-pug.ngrok-free.app/', IO.OptionBuilder()
+        .setTransports(['websocket']) // for Flutter or Dart VM
+        .build());
+
+    _socket.onConnect((_) async{
+      final token = await _storage.read(key: 'auth_token');
+      _socket.emit('authenticate', {
+        'Token': token,
+        'interface': 'Mobileapp',
+      });
+    });
+
+    _socket.on('receive_message', (data) {
+      setState(() {
+        _messages.add('${data['sender']}: ${data['message']}');
+      });
+    });
+
+    _socket.onDisconnect((_) {
+      print('Disconnected from server');
+    });
+  }
+
+  void _sendMessage() {
+    if (_controller.text.isNotEmpty) {
+      _socket.emit('private_message', {
+        'sender': 'your_username',
+        'receiver': widget.username,
+        'message': _controller.text,
+        'token': 'your_csrf_token',
+        'interface': 'Webapp',
+      });
+      setState(() {
+        _messages.add('You: ${_controller.text}');
+        _controller.clear();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _socket.disconnect();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Chat with ${widget.username}'),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context); // Go back to the previous screen
+          },
+        ),
+      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              itemCount: _messages.length,
+              itemBuilder: (context, index) {
+                return ListTile(
+                  title: Text(_messages[index]),
+                );
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: InputDecoration(
+                      hintText: 'Enter message...',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.send),
+                  onPressed: _sendMessage,
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
 
 
 class ProfilePage extends StatefulWidget {
   @override
   _ProfilePageState createState() => _ProfilePageState();
 }
-
-
 
 class _ProfilePageState extends State<ProfilePage> {
   PlatformFile? _selectedFile;
