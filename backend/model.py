@@ -10,7 +10,7 @@ from pdfminer.pdfpage import PDFPage
 import fitz
 
 # Load the saved Keras model
-model = load_model('certificate_classifier_keras_model.h5')
+model = load_model('backend\certificate_classifier_keras_model.h5')
 
 # Define preprocessing steps
 categorical_features = ['Font Style', 'Producer']
@@ -26,8 +26,8 @@ preprocessor = ColumnTransformer(
     ])
 
 # Load training data to fit preprocessor
-real_data = pd.read_csv("real_cert.csv")
-fake_data = pd.read_csv("fake_cert.csv")
+real_data = pd.read_csv("backend/real_cert.csv")
+fake_data = pd.read_csv("backend/fake_cert.csv")
 data = pd.concat([real_data, fake_data], ignore_index=True)
 X = data.drop(columns=['Label', 'Text'])
 preprocessor.fit(X)
