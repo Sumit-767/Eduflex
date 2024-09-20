@@ -864,36 +864,122 @@ class _SettingsPageState extends State<SettingsPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _githubController = TextEditingController();
+  final _websiteController = TextEditingController();
+  final _bioController = TextEditingController();
+  final _collegeController = TextEditingController();
+  final _cgpaController = TextEditingController();
+  final _hobbyController = TextEditingController();
   final _storage = FlutterSecureStorage();
+
+  File? _selectedImage;
+  DateTime? _selectedDateOfBirth;
+  String? _selectedAcademicYear;
+  String? _selectedSemester;
+
+  // Academic year options
+  final List<String> _academicYears = [
+    'First Year',
+    'Second Year',
+    'Third Year',
+    'Final Year'
+  ];
+
+  // Semester mapping based on the academic year
+  Map<String, List<String>> _semesters = {
+    'First Year': ['Sem 1', 'Sem 2'],
+    'Second Year': ['Sem 3', 'Sem 4'],
+    'Third Year': ['Sem 5', 'Sem 6'],
+    'Final Year': ['Sem 7', 'Sem 8'],
+  };
 
   Future<void> _updateProfile() async {
     final email = _emailController.text;
     final password = _passwordController.text;
     final phone = _phoneController.text;
+    final github = _githubController.text;
+    final website = _websiteController.text;
+    final bio = _bioController.text;
+    final college = _collegeController.text;
+    final cgpa = _cgpaController.text;
+    final hobby = _hobbyController.text;
+    final dob = _selectedDateOfBirth?.toIso8601String(); // Convert DateTime to String
     final token = await _storage.read(key: 'auth_token');
+    final username = await _storage.read(key: 'username');
 
-    final response = await http.post(
-      Uri.parse('https://nice-genuinely-pug.ngrok-free.app/changeprofile'),
-      headers: {
-        'Content-Type' : 'application/json',
-      },
-      body: json.encode ({
-              'Token': token,
-              'changeemail': email,
-              'changepwd': password,
-              'changephoneno': phone,
-              'interface': 'Mobileapp',
-      })
+    var uri = Uri.parse('https://nice-genuinely-pug.ngrok-free.app/changeprofile');
+    var request = http.MultipartRequest('POST', uri);
+
+    // Add other fields to the request
+    request.fields['Token'] = token!;
+    request.fields['username'] = username!;
+    request.fields['changeemail'] = email;
+    request.fields['changepwd'] = password;
+    request.fields['changephoneno'] = phone;
+    request.fields['dob'] = dob ?? '';
+    request.fields['github'] = github;
+    request.fields['website'] = website;
+    request.fields['bio'] = bio;
+    request.fields['college'] = college;
+    request.fields['academicyear'] = _selectedAcademicYear ?? '';
+    request.fields['semester'] = _selectedSemester ?? '';
+    request.fields['cgpa'] = cgpa;
+    request.fields['hobby'] = hobby;
+    request.fields['interface'] = 'Mobileapp';
+
+    // Add the image file if selected
+    if (_selectedImage != null) {
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file', // Key for the file (should match the server-side expectation)
+          _selectedImage!.path,
+          contentType: MediaType.parse(lookupMimeType(_selectedImage!.path)!),
+        ),
+      );
+    }
+
+    try {
+      // Send the request to the server
+      var response = await request.send();
+
+      // Check the response
+      if (response.statusCode == 200) {
+        var responseBody = await response.stream.bytesToString();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Update successful!')));
+        await _storage.delete(key: 'auth_token');
+        Navigator.pushReplacementNamed(context, '/');
+      } else {
+        var responseBody = await response.stream.bytesToString();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to update: ${responseBody}')));
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  // Function to select a date of birth using date picker
+  Future<void> _selectDateOfBirth(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime(2000), // Default date
+      firstDate: DateTime(1900), // Earliest selectable date
+      lastDate: DateTime.now(), // Latest selectable date
     );
+    if (pickedDate != null && pickedDate != _selectedDateOfBirth) {
+      setState(() {
+        _selectedDateOfBirth = pickedDate;
+      });
+    }
+  }
 
-    final responseBody = json.decode(response.body);
+  // Function to select an image
+  Future<void> _pickImage() async {
+    FilePickerResult? result = await FilePicker.platform.pickFiles(type: FileType.image);
 
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(responseBody['message'])));
-      await _storage.delete(key: 'auth_token');
-      Navigator.pushReplacementNamed(context, '/');
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(responseBody['message'])));
+    if (result != null) {
+      setState(() {
+        _selectedImage = File(result.files.single.path!);
+      });
     }
   }
 
@@ -909,7 +995,7 @@ class _SettingsPageState extends State<SettingsPage> {
           },
         ),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
@@ -925,6 +1011,81 @@ class _SettingsPageState extends State<SettingsPage> {
             TextField(
               controller: _phoneController,
               decoration: InputDecoration(labelText: 'New Phone Number'),
+            ),
+            // Date of Birth selection
+            ListTile(
+              title: Text(_selectedDateOfBirth == null
+                  ? 'Select Date of Birth'
+                  : 'Date of Birth: ${_selectedDateOfBirth!.toLocal().toString().split(' ')[0]}'),
+              trailing: Icon(Icons.calendar_today),
+              onTap: () => _selectDateOfBirth(context),
+            ),
+            TextField(
+              controller: _githubController,
+              decoration: InputDecoration(labelText: 'GitHub Link'),
+            ),
+            TextField(
+              controller: _websiteController,
+              decoration: InputDecoration(labelText: 'Website Link'),
+            ),
+            TextField(
+              controller: _bioController,
+              decoration: InputDecoration(labelText: 'Bio'),
+            ),
+            TextField(
+              controller: _collegeController,
+              decoration: InputDecoration(labelText: 'College Name'),
+            ),
+            // Academic Year Dropdown
+            DropdownButtonFormField<String>(
+              value: _selectedAcademicYear,
+              hint: Text('Select Academic Year'),
+              onChanged: (newValue) {
+                setState(() {
+                  _selectedAcademicYear = newValue;
+                  _selectedSemester = null; // Reset semester when year changes
+                });
+              },
+              items: _academicYears.map((year) {
+                return DropdownMenuItem(
+                  child: Text(year),
+                  value: year,
+                );
+              }).toList(),
+            ),
+            // Semester Dropdown based on selected Academic Year
+            if (_selectedAcademicYear != null)
+              DropdownButtonFormField<String>(
+                value: _selectedSemester,
+                hint: Text('Select Semester'),
+                onChanged: (newValue) {
+                  setState(() {
+                    _selectedSemester = newValue;
+                  });
+                },
+                items: _semesters[_selectedAcademicYear]!.map((semester) {
+                  return DropdownMenuItem(
+                    child: Text(semester),
+                    value: semester,
+                  );
+                }).toList(),
+              ),
+            TextField(
+              controller: _cgpaController,
+              decoration: InputDecoration(labelText: 'CGPA'),
+              keyboardType: TextInputType.number,
+            ),
+            TextField(
+              controller: _hobbyController,
+              decoration: InputDecoration(labelText: 'Hobby'),
+            ),
+            SizedBox(height: 20),
+            _selectedImage == null
+                ? Text('No image selected.')
+                : Image.file(_selectedImage!, height: 150),
+            ElevatedButton(
+              onPressed: _pickImage,
+              child: Text('Pick Profile Photo'),
             ),
             SizedBox(height: 20),
             ElevatedButton(

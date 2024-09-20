@@ -37,12 +37,13 @@ class _LoginScreenState extends State<LoginScreen> {
     if (token != null && (trial  == 0))
       {
         final responce = await http.post(
-          Uri.parse('https://nice-genuinely-pug.ngrok-free.app/mobiletoken'),
+          Uri.parse('https://nice-genuinely-pug.ngrok-free.app/login'),
           headers: {
             'Content-Type' : 'application/json',
           },
           body: json.encode({
             'mobiletoken' : token,
+            'interface' : 'Mobileapp',
           })
         );
 
