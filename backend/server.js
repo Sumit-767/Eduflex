@@ -299,9 +299,6 @@ async function checkToken(req, res, next) {
     next();
 }
 
-
-
-
 server.set("view engine", "hbs");
 server.set("views", __dirname + "/views");
 server.use("/scripts", express.static(__dirname + "/public/scripts"));
@@ -879,6 +876,53 @@ server.post('/upload', checkToken,upload.single('file'), async (req, res) => {
     }
 });
 
+server.post("/getUserProfile", checkToken, async (req, res) => {
+    let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+
+    if (Array.isArray(userIP)) {
+        userIP = userIP[0];
+    } else if (userIP.includes(',')) {
+        userIP = userIP.split(',')[0].trim();
+    }
+
+    const token = req.body.Token; // Adjust token extraction as needed
+    const tokencheck = await CSRFToken.findOne({ token });
+
+    if (tokencheck) {
+        try {
+            const userAccountData = await User.findOne({ username: tokencheck.username });
+            if (!userAccountData) {
+                return res.status(404).json({ message: "User not found" });
+            }
+
+            // Construct the user profile object
+            const userProfile = {
+                password: userAccountData.password,
+                email: userAccountData.email,
+                phone_number: userAccountData.phone_number,
+                bio: userAccountData.bio,
+                dob: userAccountData.dob,
+                college: userAccountData.college,
+                academicYear: userAccountData.academicYear,
+                semester: userAccountData.semester,
+                cgpa: userAccountData.cgpa,
+                hobby: userAccountData.hobby,
+                github: userAccountData.github,
+                website: userAccountData.website,
+            };
+            console.log("user profile : ", userProfile);
+
+            logMessage(`[=] ${req.body.interface} ${userIP} : ${tokencheck.username} retrieved profile data`);
+            res.status(200).json(userProfile);
+        } catch (error) {
+            logMessage(`[*] ${req.body.interface} ${userIP} : Internal server error ${error}`);
+            res.status(500).json({ message: "Internal server error" });
+        }
+    } else {
+        res.status(400).json({ message: "Invalid Token" });
+    }
+});
+
 
 server.post("/myprofile",checkToken, async (req, res) => {
     let userIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -897,6 +941,7 @@ server.post("/myprofile",checkToken, async (req, res) => {
         try {
             const user_profile_data = await Profiles.find({ username: tokencheck.username });
             const user_credly_data = await Credly.find({ username: tokencheck.username });
+            const user_bio_data = await User.find({username: tokencheck.username});
 
             // Include the file paths for images
             const profilePosts = user_profile_data.map(post => {
@@ -913,8 +958,11 @@ server.post("/myprofile",checkToken, async (req, res) => {
                 return post;
             });
 
+            console.log(user_profile_data); 
+            console.log(profilePosts); 
+
             logMessage(`[=] ${interface} ${userIP} : ${tokencheck.username} pulled their own profile`);
-            res.status(200).json({ data: profilePosts, credly: user_credly_data });
+            res.status(200).json({ userbio : user_bio_data,data: profilePosts, credly: user_credly_data });
         } catch (error) {
             logMessage(`[*] ${interface} ${userIP} : Internal server error ${error}`);
             res.status(500).json({ message: "Internal server error" });
