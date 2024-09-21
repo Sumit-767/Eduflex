@@ -460,9 +460,6 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 }
 
-
-
-
 class ProfilePage extends StatefulWidget {
   @override
   _ProfilePageState createState() => _ProfilePageState();
@@ -472,9 +469,12 @@ class _ProfilePageState extends State<ProfilePage> {
   PlatformFile? _selectedFile;
   final TextEditingController _descriptionController = TextEditingController();
   final FlutterSecureStorage _storage = FlutterSecureStorage();
+  Map<String, dynamic>? _userBio;
   List<Map<String, dynamic>> _userPosts = [];
   List<String> _hashtags = [];
   List<String> _selectedHashtags = [];
+  bool _isLoading = true;
+  final String userpicurl = '';
 
   @override
   void initState() {
@@ -503,7 +503,10 @@ class _ProfilePageState extends State<ProfilePage> {
     if (response.statusCode == 200) {
       final data = jsonDecode(response.body);
       setState(() {
+        _userBio = (data['userbio']as List).isNotEmpty ? data['userbio'][0] : null;
         _userPosts = List<Map<String, dynamic>>.from(data['data']);
+        String userpicurl = 'https://nice-genuinely-pug.ngrok-free.app/uploads/${_userBio!['username']}/profile/profile.jpg';
+        _isLoading = false;
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to fetch posts')));
@@ -621,6 +624,7 @@ class _ProfilePageState extends State<ProfilePage> {
 
     if (response.statusCode == 200) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload successful')));
+      _isLoading = true;
       _fetchUserPosts(); // Refresh the posts after upload
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed')));
@@ -656,7 +660,9 @@ class _ProfilePageState extends State<ProfilePage> {
     if (response.statusCode == 200) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Post deleted successfully')));
       setState(() {
-        _fetchUserPosts(); // Refresh the posts after deletion
+        _isLoading = true;
+        _fetchUserPosts();
+        // Refresh the posts after deletion
       });
     } else {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to delete post')));
@@ -749,7 +755,6 @@ class _ProfilePageState extends State<ProfilePage> {
       },
     );
   }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -762,87 +767,98 @@ class _ProfilePageState extends State<ProfilePage> {
           },
         ),
       ),
-      body: _userPosts.isEmpty
-          ? Center(child: Text('No posts available'))
-          : ListView.builder(
-        itemCount: _userPosts.length,
-        itemBuilder: (context, index) {
-          final post = _userPosts[index];
-          final List<dynamic> images = post['images'] ?? [];
-          final List<dynamic> badges = post['credly_badges'] ?? []; // Assuming 'credly_badges' is the key
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildUserProfile(), // This method displays the user bio
+            const SizedBox(height: 20), // Add some spacing between the bio and posts
+            _userPosts.isEmpty
+                ? Center(child: Text('No posts available'))
+                : ListView.builder(
+              physics: NeverScrollableScrollPhysics(), // Ensure the ListView scrolls with the entire page
+              shrinkWrap: true,
+              itemCount: _userPosts.length,
+              itemBuilder: (context, index) {
+                final post = _userPosts[index];
+                final List<dynamic> images = post['images'] ?? [];
+                final List<dynamic> badges = post['credly_badges'] ?? [];
 
-          return Card(
-            margin: const EdgeInsets.all(8.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (images.isNotEmpty) ...[
-                  CarouselSlider.builder(
-                    itemCount: images.length,
-                    itemBuilder: (context, itemIndex, realIndex) {
-                      return Image.network(
-                        'https://nice-genuinely-pug.ngrok-free.app' + images[itemIndex],
-                        fit: BoxFit.cover,
-                      );
-                    },
-                    options: CarouselOptions(
-                      height: 400.0,
-                      aspectRatio: 16 / 9,
-                      viewportFraction: 0.8,
-                      initialPage: 0,
-                      enableInfiniteScroll: false,
-                      reverse: false,
-                      autoPlay: false,
-                      autoPlayInterval: Duration(seconds: 5),
-                      autoPlayAnimationDuration: Duration(milliseconds: 800),
-                      enlargeCenterPage: true,
-                      scrollDirection: Axis.horizontal,
-                    ),
-                  ),
-                ],
-                Padding(
-                  padding: const EdgeInsets.all(8.0),
-                  child: Text(post['post_desc'] ?? 'No Description'),
-                ),
-                if (badges.isNotEmpty) ...[
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      'Credly Badges:',
-                      style: Theme.of(context).textTheme.headlineMedium,
-                    ),
-                  ),
-                  ...badges.map((badge) => Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Card(
-                      elevation: 5,
-                      child: ListTile(
-                        contentPadding: EdgeInsets.all(8.0),
-                        title: Text(
-                          badge['cert_name'] ?? 'No Certificate Name',
-                          style: Theme.of(context).textTheme.headlineMedium,
+                return Card(
+                  margin: const EdgeInsets.all(8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (images.isNotEmpty) ...[
+                        CarouselSlider.builder(
+                          itemCount: images.length,
+                          itemBuilder: (context, itemIndex, realIndex) {
+                            return Image.network(
+                              'https://nice-genuinely-pug.ngrok-free.app' + images[itemIndex],
+                              fit: BoxFit.cover,
+                            );
+                          },
+                          options: CarouselOptions(
+                            height: 400.0,
+                            aspectRatio: 16 / 9,
+                            viewportFraction: 0.8,
+                            initialPage: 0,
+                            enableInfiniteScroll: false,
+                            reverse: false,
+                            autoPlay: false,
+                            enlargeCenterPage: true,
+                            scrollDirection: Axis.horizontal,
+                          ),
                         ),
-                        subtitle: Text(
-                          '${badge['firstname'] ?? ''} ${badge['lastname'] ?? ''}\n'
-                              'Issued: ${badge['issued_date'] ?? 'No Issue Date'}',
-                          style: Theme.of(context).textTheme.headlineSmall,
-                        ),
-                        leading: Image.network(
-                          badge['badge_image'] ?? '',
-                          fit: BoxFit.cover,
-                        ),
+                      ],
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Text(post['post_desc'] ?? 'No Description'),
                       ),
-                    ),
-                  )),
-                ],
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.redAccent),
-                  onPressed: () => _deletePost(post['postID']),
-                ),
-              ],
+                      if (badges.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Text(
+                            'Credly Badges:',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                        ),
+                        ...badges.map((badge) => Padding(
+                          padding: const EdgeInsets.all(8.0),
+                          child: Card(
+                            elevation: 5,
+                            child: ListTile(
+                              contentPadding: EdgeInsets.all(8.0),
+                              title: Text(
+                                badge['cert_name'] ?? 'No Certificate Name',
+                                style: Theme.of(context).textTheme.headlineMedium,
+                              ),
+                              subtitle: Text(
+                                '${badge['firstname'] ?? ''} ${badge['lastname'] ?? ''}\n'
+                                    'Issued: ${badge['issued_date'] ?? 'No Issue Date'}',
+                                style: Theme.of(context).textTheme.bodyLarge,
+                              ),
+                              leading: Image.network(
+                                badge['badge_image'] ?? '',
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        )),
+                      ],
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.redAccent),
+                        onPressed: () => _deletePost(post['postID']),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
-          );
-        },
+          ],
+        ),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
@@ -853,13 +869,80 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
     );
   }
+
+  // Widget to display user profile
+  Widget _buildUserProfile() {
+    if (_userBio == null) {
+      return Center(child: Text('No profile information available.'));
+    }
+
+    // Construct the profile image URL based on the username
+    final String profileImageUrl =
+        'https://nice-genuinely-pug.ngrok-free.app/uploads/${_userBio!['username']}/profile/profile.jpg';
+
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // Profile picture
+              CircleAvatar(
+                radius: 40, // Adjust the size as needed
+                backgroundImage: NetworkImage(profileImageUrl),
+                onBackgroundImageError: (_, __) {
+                  print('Error loading profile image');
+                },
+                backgroundColor: Colors.grey[300], // Placeholder color
+              ),
+              SizedBox(width: 20), // Add some spacing between the image and name
+              // Name
+              Expanded(
+                child: Text(
+                  '${_userBio!['firstname']} ${_userBio!['lastname']}',
+                  style: Theme.of(context).textTheme.headlineMedium,
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 20), // Add some spacing after the row
+          Text(
+            'Email: ${_userBio!['email']}',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          SizedBox(height: 5),
+          Text(
+            'Phone: ${_userBio!['phone_number']}',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          SizedBox(height: 5),
+          Text(
+            'Bio: ${_userBio!['bio']}',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          SizedBox(height: 5),
+          Text(
+            'College: ${_userBio!['college']}',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+          SizedBox(height: 5),
+          Text(
+            'CGPA: ${_userBio!['cgpa'].toString()}',
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ],
+      ),
+    );
+  }
+
 }
 
 class SettingsPage extends StatefulWidget {
   @override
   _SettingsPageState createState() => _SettingsPageState();
 }
-
 class _SettingsPageState extends State<SettingsPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -876,6 +959,7 @@ class _SettingsPageState extends State<SettingsPage> {
   DateTime? _selectedDateOfBirth;
   String? _selectedAcademicYear;
   String? _selectedSemester;
+  String? _profilePictureUrl;
 
   // Academic year options
   final List<String> _academicYears = [
@@ -957,7 +1041,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-  // Function to select a date of birth using date picker
   Future<void> _selectDateOfBirth(BuildContext context) async {
     final DateTime? pickedDate = await showDatePicker(
       context: context,
@@ -982,6 +1065,54 @@ class _SettingsPageState extends State<SettingsPage> {
       });
     }
   }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    final token = await _storage.read(key: 'auth_token');
+    final username = await _storage.read(key: 'username');
+
+    final uri = Uri.parse('https://nice-genuinely-pug.ngrok-free.app/getUserProfile');
+
+    final response = await http.post(
+      uri,
+      body: {
+        'Token': token ?? '',       // Send the token in the body
+        'username': username ?? '',
+        'interface' : "Mobileapp"// Send the username in the body
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      setState(() {
+        _emailController.text = data['email'] ?? '';
+        _phoneController.text = data['phone_number'] ?? '';
+        _githubController.text = data['github'] ?? '';
+        _websiteController.text = data['website'] ?? '';
+        _bioController.text = data['bio'] ?? '';
+        _collegeController.text = data['college'] ?? '';
+        _cgpaController.text = data['cgpa']?.toString() ?? '';
+        _hobbyController.text = data['hobby'] ?? '';
+        _selectedAcademicYear = data['academic_year'];
+        _selectedSemester = data['semester'];
+        _passwordController.text = data['password'];
+        if (data['dob'] != null) {
+          _selectedDateOfBirth = DateTime.parse(data['dob']);
+        }
+        _profilePictureUrl = 'https://nice-genuinely-pug.ngrok-free.app/uploads/$username/profile/profile.jpg';
+      });
+    } else {
+      // Handle the error
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to load profile')));
+    }
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -1080,13 +1211,19 @@ class _SettingsPageState extends State<SettingsPage> {
               decoration: InputDecoration(labelText: 'Hobby'),
             ),
             SizedBox(height: 20),
-            _selectedImage == null
-                ? Text('No image selected.')
-                : Image.file(_selectedImage!, height: 150),
+            _profilePictureUrl != null && _selectedImage == null
+                ? CircleAvatar(
+              radius: 75, // Adjust the size as needed
+              backgroundImage: NetworkImage(_profilePictureUrl!),
+            )
+                : _selectedImage != null
+                ? Image.file(_selectedImage!, height: 150)
+                : Text('No image selected.'),
             ElevatedButton(
               onPressed: _pickImage,
               child: Text('Pick Profile Photo'),
             ),
+
             SizedBox(height: 20),
             ElevatedButton(
               onPressed: _updateProfile,
