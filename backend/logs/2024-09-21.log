@@ -51,3 +51,6 @@
 [2024-09-21T08:28:17.286Z] [=] Mobileapp 152.58.4.32 : 21104010 pulled their own profile
 [2024-09-21T08:28:17.297Z] [=] Mobileapp 152.58.4.32 : 21104010 pulled their own profile
 [2024-09-21T08:28:33.194Z] [=] Mobileapp 152.58.4.32 : 21104010 pulled their own profile
+[2024-09-21T14:13:23.114Z] [=] User 21104010 attempting to log in
+[2024-09-21T14:13:23.143Z] [=] Webapp 2409:40c0:11a9:f49a:c0bb:78de:b649:6b7b : User 21104010 successfully logged in
+[2024-09-21T14:13:23.165Z] [=] Webapp 2409:40c0:11a9:f49a:c0bb:78de:b649:6b7b : Token provided for user 21104010

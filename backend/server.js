@@ -301,7 +301,7 @@ async function checkToken(req, res, next) {
 
 server.set("view engine", "hbs");
 server.set("views", __dirname + "/views");
-server.use("/scripts", express.static(__dirname + "/public/scripts"));
+server.use('/public', express.static(path.join(__dirname, 'public')));
 const directoryPath = path.join(__dirname, "uploads");
 server.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
