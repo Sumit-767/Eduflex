@@ -1369,40 +1369,4 @@ io.on('connection', (socket) => {
     });
 });
 
-const userSockets = {}; // To keep track of user-specific sockets
-
-io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
-
-    // When a user authenticates, store their socket ID
-    socket.on('authenticate', ({ username }) => {
-        userSockets[username] = socket;
-    });
-
-    // Listen for 'private_message' event from clients
-    socket.on('private_message', async ({ sender, receiver, message }) => {
-        console.log(`Message received from ${sender} to ${receiver}: ${message}`);
-        
-        // Save message logic (not shown here) ...
-
-        // Emit the message back only to the sender
-        if (userSockets[sender]) {
-            userSockets[sender].emit('receive_message', {
-                sender,
-                message,
-                timestamp: new Date(),
-            });
-        }
-    });
-
-    socket.on('disconnect', () => {
-        console.log('A user disconnected:', socket.id);
-        // Clean up the userSockets mapping if necessary
-        for (const [username, userSocket] of Object.entries(userSockets)) {
-            if (userSocket === socket) {
-                delete userSockets[username];
-                break;
-            }
-        }
-    });
-});
+// SAmple comment were removed
