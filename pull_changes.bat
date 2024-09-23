@@ -1,7 +1,7 @@
 @echo off
 
 REM Navigate to the repository folder
-cd "C:\Users\Admin\Desktop\rl\Eduflex"
+cd "C:\your-directory\Eduflex"
 
 REM Fetch the latest changes from upstream (original repository)
 git fetch upstream
@@ -19,4 +19,4 @@ REM Log the last commit to verify merge
 git log -1 --oneline
 
 REM Optional: Log output to a file (optional)
->> "C:\Users\Admin\Desktop\rl\Eduflex\pull.log"
+>> "C:\your-directory\pull.log"
