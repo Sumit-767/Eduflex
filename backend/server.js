@@ -1354,19 +1354,6 @@ server.listen(8000, () => {
   });
 
 
-const getChatCollection = (user1, user2) => {
-    const sortedUsers = [user1, user2].sort();
-    const collectionName = `chat_${sortedUsers[0]}_${sortedUsers[1]}`;
-
-    return mongoose.connection.collection(collectionName);
-};
-
-io.on('connection', (socket) => {
-    console.log('A user connected:', socket.id);
-
-    socket.on('disconnect', () => {
-        console.log('A user disconnected:', socket.id);
-    });
-});
+//this is second comment 
 
 // SAmple comment were removed
